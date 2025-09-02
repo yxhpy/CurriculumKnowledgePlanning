@@ -59,6 +59,7 @@ class LLMService:
             temperature=0.7,
             model_name=settings.OPENAI_MODEL,
             openai_api_key=settings.OPENAI_API_KEY,
+            openai_api_base=settings.OPENAI_API_BASE,
             max_tokens=2000
         )
         
