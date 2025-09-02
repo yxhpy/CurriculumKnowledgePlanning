@@ -1,0 +1,233 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="moduleGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF9A8B;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#A8E6CF;stop-opacity:0.9" />
+    </linearGradient>
+    <linearGradient id="moduleGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD93D;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#6BCF7F;stop-opacity:0.9" />
+    </linearGradient>
+    <linearGradient id="moduleGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4FACFE;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#00F2FE;stop-opacity:0.9" />
+    </linearGradient>
+    <linearGradient id="moduleGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FA709A;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#FEE140;stop-opacity:0.9" />
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="120%" height="130%">
+      <feDropShadow dx="3" dy="3" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1000" height="800" fill="#f8f9fc"/>
+  
+  <!-- Title -->
+  <rect x="0" y="0" width="1000" height="60" fill="url(#headerGrad)"/>
+  <text x="500" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">提示词工程流程图 (Prompt Engineering)</text>
+  
+  <!-- Central Process Flow -->
+  <text x="500" y="90" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#333">核心流程: 输入文档 → 内容分析 → 角色设定 → 提示词构建 → LLM生成 → 质量优化</text>
+  
+  <!-- Module 1: Course Introduction -->
+  <g transform="translate(50, 120)">
+    <rect x="0" y="0" width="220" height="150" rx="12" fill="url(#moduleGrad1)" filter="url(#shadow)" stroke="#FF9A8B" stroke-width="2"/>
+    <text x="110" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">课程简介生成模块</text>
+    
+    <rect x="10" y="40" width="200" height="100" rx="6" fill="rgba(255,255,255,0.9)"/>
+    <text x="15" y="55" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#333">提示词模板:</text>
+    <text x="15" y="70" font-family="Arial, sans-serif" font-size="9" fill="#555">你是一位资深的课程设计专家。</text>
+    <text x="15" y="82" font-family="Arial, sans-serif" font-size="9" fill="#555">基于以下文档内容，生成课程简介：</text>
+    <text x="15" y="94" font-family="Arial, sans-serif" font-size="9" fill="#555">1. 概括核心内容(100-150字)</text>
+    <text x="15" y="106" font-family="Arial, sans-serif" font-size="9" fill="#555">2. 突出课程亮点和价值</text>
+    <text x="15" y="118" font-family="Arial, sans-serif" font-size="9" fill="#555">3. 适用对象和前置要求</text>
+    <text x="15" y="130" font-family="Arial, sans-serif" font-size="9" fill="#555">输出格式: JSON结构化数据</text>
+  </g>
+  
+  <!-- Module 2: Course Objectives -->
+  <g transform="translate(300, 120)">
+    <rect x="0" y="0" width="220" height="150" rx="12" fill="url(#moduleGrad2)" filter="url(#shadow)" stroke="#FFD93D" stroke-width="2"/>
+    <text x="110" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">课程目标生成模块</text>
+    
+    <rect x="10" y="40" width="200" height="100" rx="6" fill="rgba(255,255,255,0.9)"/>
+    <text x="15" y="55" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#333">SMART原则提示词:</text>
+    <text x="15" y="70" font-family="Arial, sans-serif" font-size="9" fill="#555">基于文档内容，设定课程目标：</text>
+    <text x="15" y="82" font-family="Arial, sans-serif" font-size="9" fill="#555">• Specific(具体明确)</text>
+    <text x="15" y="94" font-family="Arial, sans-serif" font-size="9" fill="#555">• Measurable(可衡量)</text>
+    <text x="15" y="106" font-family="Arial, sans-serif" font-size="9" fill="#555">• Achievable(可达成)</text>
+    <text x="15" y="118" font-family="Arial, sans-serif" font-size="9" fill="#555">• Relevant(相关性)</text>
+    <text x="15" y="130" font-family="Arial, sans-serif" font-size="9" fill="#555">• Time-bound(时限性)</text>
+  </g>
+  
+  <!-- Module 3: Chapter Generation -->
+  <g transform="translate(550, 120)">
+    <rect x="0" y="0" width="220" height="150" rx="12" fill="url(#moduleGrad3)" filter="url(#shadow)" stroke="#4FACFE" stroke-width="2"/>
+    <text x="110" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">章节描述生成模块</text>
+    
+    <rect x="10" y="40" width="200" height="100" rx="6" fill="rgba(255,255,255,0.9)"/>
+    <text x="15" y="55" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#333">层次化结构提示:</text>
+    <text x="15" y="70" font-family="Arial, sans-serif" font-size="9" fill="#555">分析文档结构，生成章节体系：</text>
+    <text x="15" y="82" font-family="Arial, sans-serif" font-size="9" fill="#555">1. 主章节(3-8个)</text>
+    <text x="15" y="94" font-family="Arial, sans-serif" font-size="9" fill="#555">2. 子章节(每章2-5个)</text>
+    <text x="15" y="106" font-family="Arial, sans-serif" font-size="9" fill="#555">3. 知识点(最多2级嵌套)</text>
+    <text x="15" y="118" font-family="Arial, sans-serif" font-size="9" fill="#555">4. 逻辑顺序和依赖关系</text>
+    <text x="15" y="130" font-family="Arial, sans-serif" font-size="9" fill="#555">保持内容的逻辑连贯性</text>
+  </g>
+  
+  <!-- Module 4: Knowledge Graph -->
+  <g transform="translate(730, 120)">
+    <rect x="0" y="0" width="220" height="150" rx="12" fill="url(#moduleGrad4)" filter="url(#shadow)" stroke="#FA709A" stroke-width="2"/>
+    <text x="110" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">知识图谱生成模块</text>
+    
+    <rect x="10" y="40" width="200" height="100" rx="6" fill="rgba(255,255,255,0.9)"/>
+    <text x="15" y="55" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#333">关系抽取提示:</text>
+    <text x="15" y="70" font-family="Arial, sans-serif" font-size="9" fill="#555">识别并提取概念关系：</text>
+    <text x="15" y="82" font-family="Arial, sans-serif" font-size="9" fill="#555">• 先修关系(prerequisite)</text>
+    <text x="15" y="94" font-family="Arial, sans-serif" font-size="9" fill="#555">• 包含关系(contains)</text>
+    <text x="15" y="106" font-family="Arial, sans-serif" font-size="9" fill="#555">• 关联关系(relates_to)</text>
+    <text x="15" y="118" font-family="Arial, sans-serif" font-size="9" fill="#555">• 应用关系(applies_to)</text>
+    <text x="15" y="130" font-family="Arial, sans-serif" font-size="9" fill="#555">输出: Neo4j Cypher语句</text>
+  </g>
+  
+  <!-- Best Practices Section -->
+  <rect x="50" y="300" width="900" height="120" rx="12" fill="#E8F4FD" stroke="#4A90E2" stroke-width="2"/>
+  <text x="70" y="325" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#4A90E2">Prompt Engineering 最佳实践</text>
+  
+  <g transform="translate(80, 340)">
+    <circle cx="8" cy="8" r="3" fill="#4A90E2"/>
+    <text x="20" y="12" font-family="Arial, sans-serif" font-size="11" fill="#333">清晰的角色定义: 为模型指定专业身份和背景知识</text>
+  </g>
+  <g transform="translate(80, 360)">
+    <circle cx="8" cy="8" r="3" fill="#4A90E2"/>
+    <text x="20" y="12" font-family="Arial, sans-serif" font-size="11" fill="#333">结构化指令: 使用编号列表、明确的格式要求和示例</text>
+  </g>
+  <g transform="translate(80, 380)">
+    <circle cx="8" cy="8" r="3" fill="#4A90E2"/>
+    <text x="20" y="12" font-family="Arial, sans-serif" font-size="11" fill="#333">上下文管理: 控制输入长度，提供相关背景信息</text>
+  </g>
+  <g transform="translate(80, 400)">
+    <circle cx="8" cy="8" r="3" fill="#4A90E2"/>
+    <text x="20" y="12" font-family="Arial, sans-serif" font-size="11" fill="#333">迭代优化: 基于输出质量持续调整提示词策略</text>
+  </g>
+  
+  <g transform="translate(500, 340)">
+    <circle cx="8" cy="8" r="3" fill="#7ED321"/>
+    <text x="20" y="12" font-family="Arial, sans-serif" font-size="11" fill="#333">Few-shot Learning: 提供2-3个高质量示例</text>
+  </g>
+  <g transform="translate(500, 360)">
+    <circle cx="8" cy="8" r="3" fill="#7ED321"/>
+    <text x="20" y="12" font-family="Arial, sans-serif" font-size="11" fill="#333">Chain of Thought: 引导模型逐步推理</text>
+  </g>
+  <g transform="translate(500, 380)">
+    <circle cx="8" cy="8" r="3" fill="#7ED321"/>
+    <text x="20" y="12" font-family="Arial, sans-serif" font-size="11" fill="#333">输出约束: 明确格式、长度和质量标准</text>
+  </g>
+  <g transform="translate(500, 400)">
+    <circle cx="8" cy="8" r="3" fill="#7ED321"/>
+    <text x="20" y="12" font-family="Arial, sans-serif" font-size="11" fill="#333">错误处理: 预设异常情况的处理策略</text>
+  </g>
+  
+  <!-- Implementation Flow -->
+  <rect x="50" y="450" width="900" height="100" rx="12" fill="#FFF8E1" stroke="#FFC107" stroke-width="2"/>
+  <text x="70" y="475" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#F57C00">技术实现流程</text>
+  
+  <!-- Flow steps -->
+  <g transform="translate(80, 490)">
+    <rect x="0" y="0" width="100" height="30" rx="15" fill="#FFC107"/>
+    <text x="50" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">1. 文档解析</text>
+  </g>
+  
+  <path d="M 190 505 L 210 505" stroke="#FFC107" stroke-width="3" marker-end="url(#arrowYellow)"/>
+  
+  <g transform="translate(220, 490)">
+    <rect x="0" y="0" width="100" height="30" rx="15" fill="#FF9800"/>
+    <text x="50" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">2. 内容预处理</text>
+  </g>
+  
+  <path d="M 330 505 L 350 505" stroke="#FF9800" stroke-width="3" marker-end="url(#arrowOrange)"/>
+  
+  <g transform="translate(360, 490)">
+    <rect x="0" y="0" width="100" height="30" rx="15" fill="#FF5722"/>
+    <text x="50" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">3. 模板构建</text>
+  </g>
+  
+  <path d="M 470 505 L 490 505" stroke="#FF5722" stroke-width="3" marker-end="url(#arrowRed)"/>
+  
+  <g transform="translate(500, 490)">
+    <rect x="0" y="0" width="100" height="30" rx="15" fill="#9C27B0"/>
+    <text x="50" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">4. LLM调用</text>
+  </g>
+  
+  <path d="M 610 505 L 630 505" stroke="#9C27B0" stroke-width="3" marker-end="url(#arrowPurple)"/>
+  
+  <g transform="translate(640, 490)">
+    <rect x="0" y="0" width="100" height="30" rx="15" fill="#3F51B5"/>
+    <text x="50" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">5. 结果验证</text>
+  </g>
+  
+  <path d="M 750 505 L 770 505" stroke="#3F51B5" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  
+  <g transform="translate(780, 490)">
+    <rect x="0" y="0" width="100" height="30" rx="15" fill="#4CAF50"/>
+    <text x="50" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">6. 格式化输出</text>
+  </g>
+  
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowYellow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#FFC107"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#FF9800"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#FF5722"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#9C27B0"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3F51B5"/>
+    </marker>
+  </defs>
+  
+  <!-- Quality Metrics -->
+  <rect x="50" y="580" width="900" height="80" rx="12" fill="#F3E5F5" stroke="#9C27B0" stroke-width="2"/>
+  <text x="70" y="605" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#9C27B0">质量评估指标</text>
+  
+  <g transform="translate(80, 620)">
+    <rect x="0" y="0" width="180" height="30" rx="4" fill="rgba(156, 39, 176, 0.1)" stroke="#9C27B0"/>
+    <text x="10" y="15" font-family="Arial, sans-serif" font-size="10" fill="#333">内容完整性: 90%+</text>
+    <text x="10" y="25" font-family="Arial, sans-serif" font-size="9" fill="#666">覆盖所有核心知识点</text>
+  </g>
+  
+  <g transform="translate(280, 620)">
+    <rect x="0" y="0" width="180" height="30" rx="4" fill="rgba(156, 39, 176, 0.1)" stroke="#9C27B0"/>
+    <text x="10" y="15" font-family="Arial, sans-serif" font-size="10" fill="#333">逻辑一致性: 95%+</text>
+    <text x="10" y="25" font-family="Arial, sans-serif" font-size="9" fill="#666">章节间逻辑关系清晰</text>
+  </g>
+  
+  <g transform="translate(480, 620)">
+    <rect x="0" y="0" width="180" height="30" rx="4" fill="rgba(156, 39, 176, 0.1)" stroke="#9C27B0"/>
+    <text x="10" y="15" font-family="Arial, sans-serif" font-size="10" fill="#333">语言质量: 专业+易懂</text>
+    <text x="10" y="25" font-family="Arial, sans-serif" font-size="9" fill="#666">符合教育表达规范</text>
+  </g>
+  
+  <g transform="translate(680, 620)">
+    <rect x="0" y="0" width="180" height="30" rx="4" fill="rgba(156, 39, 176, 0.1)" stroke="#9C27B0"/>
+    <text x="10" y="15" font-family="Arial, sans-serif" font-size="10" fill="#333">结构规范: JSON格式</text>
+    <text x="10" y="25" font-family="Arial, sans-serif" font-size="9" fill="#666">便于系统集成处理</text>
+  </g>
+  
+  <!-- Footer -->
+  <rect x="50" y="690" width="900" height="60" rx="8" fill="#263238" stroke="#37474F"/>
+  <text x="70" y="715" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">核心技术栈</text>
+  <text x="70" y="730" font-family="Arial, sans-serif" font-size="10" fill="#B0BEC5">LangChain Template Engine · OpenAI GPT-4 · Prompt Optimization Tools</text>
+  <text x="70" y="745" font-family="Arial, sans-serif" font-size="10" fill="#B0BEC5">JSON Schema Validation · Content Quality Assessment · Iterative Prompt Refinement</text>
+</svg>
