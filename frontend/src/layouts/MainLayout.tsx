@@ -13,7 +13,6 @@ import {
   DashboardOutlined,
   CloudUploadOutlined,
   RobotOutlined,
-  DeploymentUnitOutlined,
   BookOutlined,
   UserOutlined,
   LogoutOutlined,
@@ -51,12 +50,6 @@ const MainLayout: React.FC = () => {
       icon: <RobotOutlined />,
       label: '课程生成',
       onClick: () => navigate('/generate'),
-    },
-    {
-      key: '/knowledge-graph',
-      icon: <DeploymentUnitOutlined />,
-      label: '知识图谱',
-      onClick: () => navigate('/knowledge-graph'),
     },
     {
       key: '/courses',
@@ -105,11 +98,17 @@ const MainLayout: React.FC = () => {
         trigger={null}
         collapsible
         collapsed={collapsed}
-        className="shadow-lg"
+        className="shadow-sm"
         theme="light"
+        style={{ 
+          background: '#fafafa'
+        }}
       >
-        <div className="h-16 flex items-center justify-center border-b">
-          <div className="text-xl font-bold text-primary-600">
+        <div className="h-16 flex items-center justify-center border-b" style={{ 
+          borderBottom: '1px solid #e8e8e8',
+          background: '#ffffff'
+        }}>
+          <div className="text-lg font-medium" style={{ color: '#1677ff' }}>
             {collapsed ? 'CKP' : '智能课程系统'}
           </div>
         </div>
@@ -118,6 +117,12 @@ const MainLayout: React.FC = () => {
           selectedKeys={[location.pathname]}
           items={menuItems}
           className="border-r-0"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            marginTop: '8px'
+          }}
+          theme="light"
         />
       </Sider>
       <Layout>
@@ -141,9 +146,9 @@ const MainLayout: React.FC = () => {
           </Space>
         </Header>
         <Content
-          className="m-6"
           style={{
-            padding: 24,
+            margin: '24px',
+            padding: '32px',
             minHeight: 280,
             background: colorBgContainer,
             borderRadius: borderRadiusLG,

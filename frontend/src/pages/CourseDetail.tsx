@@ -19,6 +19,11 @@ import {
   Badge,
   Divider,
   Tabs,
+  Input,
+  Form,
+  Select,
+  InputNumber,
+  Modal,
 } from 'antd';
 import {
   BookOutlined,
@@ -35,8 +40,10 @@ import {
   StarOutlined,
   TeamOutlined,
   TrophyOutlined,
+  PartitionOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
+import KnowledgeGraphViewer from '../components/KnowledgeGraphViewer';
 
 const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
@@ -59,6 +66,7 @@ interface Section {
   content: string;
   estimated_minutes: number;
   knowledge_points: KnowledgePoint[];
+  chapterId?: number; // 添加可选的chapterId用于编辑时标识
 }
 
 interface Chapter {
@@ -92,6 +100,14 @@ const CourseDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [expandedChapters, setExpandedChapters] = useState<string[]>([]);
+  const [editMode, setEditMode] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<Partial<Course>>({});
+  const [editingChapter, setEditingChapter] = useState<Partial<Chapter> | null>(null);
+  const [editingSection, setEditingSection] = useState<Partial<Section> | null>(null);
+  const [editingKnowledgePoint, setEditingKnowledgePoint] = useState<(Partial<KnowledgePoint> & { chapterId?: number; sectionId?: number }) | null>(null);
+  const [chapterEditMode, setChapterEditMode] = useState(false);
+  const [sectionEditMode, setSectionEditMode] = useState(false);
+  const [knowledgePointEditMode, setKnowledgePointEditMode] = useState(false);
 
   useEffect(() => {
     fetchCourseDetail();
@@ -137,6 +153,214 @@ const CourseDetail: React.FC = () => {
         return '高级';
       default:
         return level;
+    }
+  };
+
+  const handleEditStart = () => {
+    if (course) {
+      setEditingCourse({
+        title: course.title,
+        description: course.description,
+        difficulty_level: course.difficulty_level,
+        target_audience: course.target_audience,
+        estimated_hours: course.estimated_hours,
+      });
+      setEditMode(true);
+    }
+  };
+
+  const handleEditCancel = () => {
+    setEditMode(false);
+    setEditingCourse({});
+  };
+
+  const handleEditSave = async () => {
+    if (!course || !editingCourse) return;
+
+    try {
+      const response = await axios.put(`http://localhost:8000/api/v1/courses/${course.id}`, {
+        title: editingCourse.title,
+        description: editingCourse.description,
+        difficulty_level: editingCourse.difficulty_level,
+        target_audience: editingCourse.target_audience,
+        estimated_hours: editingCourse.estimated_hours,
+      });
+
+      if (response.data) {
+        // Update the course state with the response data
+        setCourse(prev => prev ? { ...prev, ...response.data } : null);
+        message.success('课程信息更新成功');
+        setEditMode(false);
+        setEditingCourse({});
+      }
+    } catch (error) {
+      console.error('Failed to update course:', error);
+      message.error('更新课程信息失败');
+    }
+  };
+
+  // 章节编辑函数
+  const handleChapterEditStart = (chapter: Chapter) => {
+    setEditingChapter({
+      id: chapter.id,
+      title: chapter.title,
+      description: chapter.description,
+      estimated_hours: chapter.estimated_hours,
+      difficulty_level: chapter.difficulty_level,
+      learning_objectives: chapter.learning_objectives,
+    });
+    setChapterEditMode(true);
+  };
+
+  const handleChapterEditCancel = () => {
+    setChapterEditMode(false);
+    setEditingChapter(null);
+  };
+
+  const handleChapterEditSave = async () => {
+    if (!course || !editingChapter || !editingChapter.id) return;
+
+    try {
+      const response = await axios.put(
+        `http://localhost:8000/api/v1/courses/${course.id}/chapters/${editingChapter.id}`, 
+        {
+          title: editingChapter.title,
+          description: editingChapter.description,
+          estimated_hours: editingChapter.estimated_hours,
+          difficulty_level: editingChapter.difficulty_level,
+          learning_objectives: editingChapter.learning_objectives,
+        }
+      );
+
+      if (response.data) {
+        // Update the course chapters
+        setCourse(prev => {
+          if (!prev) return null;
+          const updatedChapters = prev.chapters.map(chapter => 
+            chapter.id === editingChapter.id ? { ...chapter, ...response.data } : chapter
+          );
+          return { ...prev, chapters: updatedChapters };
+        });
+        message.success('章节信息更新成功');
+        setChapterEditMode(false);
+        setEditingChapter(null);
+      }
+    } catch (error) {
+      console.error('Failed to update chapter:', error);
+      message.error('更新章节信息失败');
+    }
+  };
+
+  // 小节编辑函数
+  const handleSectionEditStart = (section: Section, chapterId: number) => {
+    setEditingSection({
+      ...section,
+      chapterId, // 添加章节ID以便后续更新
+    });
+    setSectionEditMode(true);
+  };
+
+  const handleSectionEditCancel = () => {
+    setSectionEditMode(false);
+    setEditingSection(null);
+  };
+
+  const handleSectionEditSave = async () => {
+    if (!course || !editingSection || !editingSection.id || !editingSection.chapterId) return;
+
+    try {
+      const response = await axios.put(
+        `http://localhost:8000/api/v1/courses/${course.id}/chapters/${editingSection.chapterId}/sections/${editingSection.id}`,
+        {
+          title: editingSection.title,
+          description: editingSection.description,
+          content: editingSection.content,
+          estimated_minutes: editingSection.estimated_minutes,
+        }
+      );
+
+      if (response.data) {
+        // Update the course sections
+        setCourse(prev => {
+          if (!prev) return null;
+          const updatedChapters = prev.chapters.map(chapter => {
+            if (chapter.id === editingSection.chapterId) {
+              const updatedSections = chapter.sections.map(section => 
+                section.id === editingSection.id ? { ...section, ...response.data } : section
+              );
+              return { ...chapter, sections: updatedSections };
+            }
+            return chapter;
+          });
+          return { ...prev, chapters: updatedChapters };
+        });
+        message.success('小节信息更新成功');
+        setSectionEditMode(false);
+        setEditingSection(null);
+      }
+    } catch (error) {
+      console.error('Failed to update section:', error);
+      message.error('更新小节信息失败');
+    }
+  };
+
+  // 知识点编辑函数
+  const handleKnowledgePointEditStart = (point: KnowledgePoint, chapterId: number, sectionId: number) => {
+    setEditingKnowledgePoint({
+      ...point,
+      chapterId,
+      sectionId,
+    });
+    setKnowledgePointEditMode(true);
+  };
+
+  const handleKnowledgePointEditCancel = () => {
+    setKnowledgePointEditMode(false);
+    setEditingKnowledgePoint(null);
+  };
+
+  const handleKnowledgePointEditSave = async () => {
+    if (!course || !editingKnowledgePoint || !editingKnowledgePoint.id || !editingKnowledgePoint.chapterId || !editingKnowledgePoint.sectionId) return;
+
+    try {
+      const response = await axios.put(
+        `http://localhost:8000/api/v1/courses/${course.id}/chapters/${editingKnowledgePoint.chapterId}/sections/${editingKnowledgePoint.sectionId}/knowledge-points/${editingKnowledgePoint.id}`,
+        {
+          title: editingKnowledgePoint.title,
+          description: editingKnowledgePoint.description,
+          point_type: editingKnowledgePoint.point_type,
+          estimated_minutes: editingKnowledgePoint.estimated_minutes,
+        }
+      );
+
+      if (response.data) {
+        // Update the course knowledge points
+        setCourse(prev => {
+          if (!prev) return null;
+          const updatedChapters = prev.chapters.map(chapter => {
+            if (chapter.id === editingKnowledgePoint.chapterId) {
+              const updatedSections = chapter.sections.map(section => {
+                if (section.id === editingKnowledgePoint.sectionId) {
+                  const updatedPoints = section.knowledge_points.map(point => 
+                    point.id === editingKnowledgePoint.id ? { ...point, ...response.data } : point
+                  );
+                  return { ...section, knowledge_points: updatedPoints };
+                }
+                return section;
+              });
+              return { ...chapter, sections: updatedSections };
+            }
+            return chapter;
+          });
+          return { ...prev, chapters: updatedChapters };
+        });
+        message.success('知识点信息更新成功');
+        setKnowledgePointEditMode(false);
+        setEditingKnowledgePoint(null);
+      }
+    } catch (error) {
+      console.error('Failed to update knowledge point:', error);
+      message.error('更新知识点信息失败');
     }
   };
 
@@ -200,7 +424,7 @@ const CourseDetail: React.FC = () => {
     if (!course) return null;
 
     return (
-      <div className="space-y-6">
+      <div className="page-section">
         <Card>
           <Descriptions title="课程基本信息" bordered column={2}>
             <Descriptions.Item label="课程名称" span={2}>
@@ -328,6 +552,16 @@ const CourseDetail: React.FC = () => {
                       <Text type="secondary">
                         <FileTextOutlined /> {chapter.sections?.length || 0} 小节
                       </Text>
+                      <Button
+                        size="small"
+                        icon={<EditOutlined />}
+                        type="text"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleChapterEditStart(chapter);
+                        }}
+                        title="编辑章节"
+                      />
                     </Space>
                   </div>
                 }
@@ -361,13 +595,25 @@ const CourseDetail: React.FC = () => {
                         <Panel
                           key={`section-${section.id}`}
                           header={
-                            <Space>
-                              <Badge status="processing" text={section.section_number} />
-                              <Text strong>{section.title}</Text>
-                              <Text type="secondary">
-                                ({section.estimated_minutes} 分钟)
-                              </Text>
-                            </Space>
+                            <div className="flex justify-between items-center w-full">
+                              <Space>
+                                <Badge status="processing" text={section.section_number} />
+                                <Text strong>{section.title}</Text>
+                                <Text type="secondary">
+                                  ({section.estimated_minutes} 分钟)
+                                </Text>
+                              </Space>
+                              <Button
+                                size="small"
+                                icon={<EditOutlined />}
+                                type="text"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSectionEditStart(section, chapter.id);
+                                }}
+                                title="编辑小节"
+                              />
+                            </div>
                           }
                         >
                           <div className="space-y-3">
@@ -389,25 +635,35 @@ const CourseDetail: React.FC = () => {
                                   className="mt-2"
                                   dataSource={section.knowledge_points}
                                   renderItem={(point) => (
-                                    <List.Item>
-                                      <Space className="w-full">
-                                        {getPointTypeIcon(point.point_type)}
-                                        <div className="flex-1">
-                                          <div>
+                                    <List.Item
+                                      actions={[
+                                        <Button
+                                          key="edit"
+                                          type="text"
+                                          size="small"
+                                          icon={<EditOutlined />}
+                                          onClick={() => handleKnowledgePointEditStart(point, chapter.id, section.id)}
+                                        >
+                                          编辑
+                                        </Button>
+                                      ]}
+                                    >
+                                      <List.Item.Meta
+                                        avatar={getPointTypeIcon(point.point_type)}
+                                        title={
+                                          <Space>
                                             <Tag color="blue">{point.point_id}</Tag>
                                             <Text strong>{point.title}</Text>
-                                            <Tag color="default" className="ml-2">
+                                            <Tag color="default">
                                               {getPointTypeText(point.point_type)}
                                             </Tag>
-                                            <Text type="secondary" className="ml-2">
+                                            <Text type="secondary">
                                               ({point.estimated_minutes} 分钟)
                                             </Text>
-                                          </div>
-                                          <Paragraph type="secondary" className="mt-1 mb-0">
-                                            {point.description}
-                                          </Paragraph>
-                                        </div>
-                                      </Space>
+                                          </Space>
+                                        }
+                                        description={point.description}
+                                      />
                                     </List.Item>
                                   )}
                                 />
@@ -481,8 +737,9 @@ const CourseDetail: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="page-container">
+      <div className="page-header">
+        <div className="flex justify-between items-center">
         <Breadcrumb>
           <Breadcrumb.Item>
             <a onClick={() => navigate('/dashboard')}>首页</a>
@@ -497,7 +754,7 @@ const CourseDetail: React.FC = () => {
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/courses')}>
             返回列表
           </Button>
-          <Button icon={<EditOutlined />} type="primary">
+          <Button icon={<EditOutlined />} type="primary" onClick={handleEditStart}>
             编辑课程
           </Button>
           <Button icon={<DownloadOutlined />}>
@@ -507,9 +764,11 @@ const CourseDetail: React.FC = () => {
             分享
           </Button>
         </Space>
+        </div>
       </div>
 
-      <Card>
+      <div className="page-section">
+        <Card>
         <div className="mb-4">
           <Title level={2} className="mb-2">
             {course.title}
@@ -543,8 +802,269 @@ const CourseDetail: React.FC = () => {
           <TabPane tab={<span><TrophyOutlined />学习路径</span>} key="path">
             {renderLearningPath()}
           </TabPane>
+          <TabPane tab={<span><PartitionOutlined />知识图谱</span>} key="knowledge-graph">
+            <KnowledgeGraphViewer 
+              courseId={course.id} 
+              height={600}
+              onGenerate={() => {
+                message.success('知识图谱已更新');
+              }}
+            />
+          </TabPane>
         </Tabs>
-      </Card>
+        </Card>
+      </div>
+
+      {/* 编辑课程模态框 */}
+      <Modal
+        title="编辑课程信息"
+        open={editMode}
+        onOk={handleEditSave}
+        onCancel={handleEditCancel}
+        width={600}
+        okText="保存"
+        cancelText="取消"
+      >
+        <Form layout="vertical">
+          <Form.Item label="课程标题">
+            <Input
+              value={editingCourse.title}
+              onChange={(e) => setEditingCourse(prev => ({ ...prev, title: e.target.value }))}
+              placeholder="请输入课程标题"
+            />
+          </Form.Item>
+          
+          <Form.Item label="课程描述">
+            <Input.TextArea
+              value={editingCourse.description}
+              onChange={(e) => setEditingCourse(prev => ({ ...prev, description: e.target.value }))}
+              placeholder="请输入课程描述"
+              rows={4}
+            />
+          </Form.Item>
+          
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="难度等级">
+                <Select
+                  value={editingCourse.difficulty_level}
+                  onChange={(value) => setEditingCourse(prev => ({ ...prev, difficulty_level: value }))}
+                  placeholder="请选择难度等级"
+                >
+                  <Select.Option value="beginner">初级</Select.Option>
+                  <Select.Option value="intermediate">中级</Select.Option>
+                  <Select.Option value="advanced">高级</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="预计学时">
+                <InputNumber
+                  value={editingCourse.estimated_hours}
+                  onChange={(value) => setEditingCourse(prev => ({ ...prev, estimated_hours: value || 0 }))}
+                  placeholder="请输入预计学时"
+                  min={0}
+                  max={500}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          
+          <Form.Item label="目标受众">
+            <Input
+              value={editingCourse.target_audience}
+              onChange={(e) => setEditingCourse(prev => ({ ...prev, target_audience: e.target.value }))}
+              placeholder="请输入目标受众"
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 编辑章节模态框 */}
+      <Modal
+        title="编辑章节信息"
+        open={chapterEditMode}
+        onOk={handleChapterEditSave}
+        onCancel={handleChapterEditCancel}
+        width={700}
+        okText="保存"
+        cancelText="取消"
+      >
+        {editingChapter && (
+          <Form layout="vertical">
+            <Form.Item label="章节标题">
+              <Input
+                value={editingChapter.title}
+                onChange={(e) => setEditingChapter(prev => prev ? ({ ...prev, title: e.target.value }) : null)}
+                placeholder="请输入章节标题"
+              />
+            </Form.Item>
+            
+            <Form.Item label="章节描述">
+              <Input.TextArea
+                value={editingChapter.description}
+                onChange={(e) => setEditingChapter(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
+                placeholder="请输入章节描述"
+                rows={3}
+              />
+            </Form.Item>
+            
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item label="难度等级">
+                  <Select
+                    value={editingChapter.difficulty_level}
+                    onChange={(value) => setEditingChapter(prev => prev ? ({ ...prev, difficulty_level: value }) : null)}
+                    placeholder="请选择难度等级"
+                  >
+                    <Select.Option value="beginner">初级</Select.Option>
+                    <Select.Option value="intermediate">中级</Select.Option>
+                    <Select.Option value="advanced">高级</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="预计学时">
+                  <InputNumber
+                    value={editingChapter.estimated_hours}
+                    onChange={(value) => setEditingChapter(prev => prev ? ({ ...prev, estimated_hours: value || 0 }) : null)}
+                    placeholder="请输入预计学时"
+                    min={0}
+                    max={50}
+                    style={{ width: '100%' }}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+            
+            <Form.Item label="学习目标">
+              <Input.TextArea
+                value={editingChapter.learning_objectives?.join('\n')}
+                onChange={(e) => {
+                  const objectives = e.target.value.split('\n').filter(obj => obj.trim());
+                  setEditingChapter(prev => prev ? ({ ...prev, learning_objectives: objectives }) : null);
+                }}
+                placeholder="请输入学习目标，每行一个"
+                rows={4}
+              />
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
+
+      {/* 编辑小节模态框 */}
+      <Modal
+        title="编辑小节信息"
+        open={sectionEditMode}
+        onOk={handleSectionEditSave}
+        onCancel={handleSectionEditCancel}
+        width={800}
+        okText="保存"
+        cancelText="取消"
+      >
+        {editingSection && (
+          <Form layout="vertical">
+            <Form.Item label="小节标题">
+              <Input
+                value={editingSection.title}
+                onChange={(e) => setEditingSection(prev => prev ? ({ ...prev, title: e.target.value }) : null)}
+                placeholder="请输入小节标题"
+              />
+            </Form.Item>
+            
+            <Form.Item label="小节描述">
+              <Input.TextArea
+                value={editingSection.description}
+                onChange={(e) => setEditingSection(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
+                placeholder="请输入小节描述"
+                rows={2}
+              />
+            </Form.Item>
+            
+            <Form.Item label="小节内容">
+              <Input.TextArea
+                value={editingSection.content}
+                onChange={(e) => setEditingSection(prev => prev ? ({ ...prev, content: e.target.value }) : null)}
+                placeholder="请输入小节的详细内容"
+                rows={8}
+              />
+            </Form.Item>
+            
+            <Form.Item label="预计分钟数">
+              <InputNumber
+                value={editingSection.estimated_minutes}
+                onChange={(value) => setEditingSection(prev => prev ? ({ ...prev, estimated_minutes: value || 0 }) : null)}
+                placeholder="请输入预计学习分钟数"
+                min={0}
+                max={300}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
+
+      {/* 编辑知识点模态框 */}
+      <Modal
+        title="编辑知识点信息"
+        open={knowledgePointEditMode}
+        onOk={handleKnowledgePointEditSave}
+        onCancel={handleKnowledgePointEditCancel}
+        width={600}
+        okText="保存"
+        cancelText="取消"
+      >
+        {editingKnowledgePoint && (
+          <Form layout="vertical">
+            <Form.Item label="知识点标题">
+              <Input
+                value={editingKnowledgePoint.title}
+                onChange={(e) => setEditingKnowledgePoint(prev => prev ? ({ ...prev, title: e.target.value }) : null)}
+                placeholder="请输入知识点标题"
+              />
+            </Form.Item>
+            
+            <Form.Item label="知识点描述">
+              <Input.TextArea
+                value={editingKnowledgePoint.description}
+                onChange={(e) => setEditingKnowledgePoint(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
+                placeholder="请输入知识点描述"
+                rows={4}
+              />
+            </Form.Item>
+            
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item label="知识点类型">
+                  <Select
+                    value={editingKnowledgePoint.point_type}
+                    onChange={(value) => setEditingKnowledgePoint(prev => prev ? ({ ...prev, point_type: value }) : null)}
+                    placeholder="请选择知识点类型"
+                  >
+                    <Select.Option value="concept">概念</Select.Option>
+                    <Select.Option value="method">方法</Select.Option>
+                    <Select.Option value="tool">工具</Select.Option>
+                    <Select.Option value="case">案例</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="预计分钟数">
+                  <InputNumber
+                    value={editingKnowledgePoint.estimated_minutes}
+                    onChange={(value) => setEditingKnowledgePoint(prev => prev ? ({ ...prev, estimated_minutes: value || 0 }) : null)}
+                    placeholder="请输入预计学习分钟数"
+                    min={0}
+                    max={120}
+                    style={{ width: '100%' }}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+          </Form>
+        )}
+      </Modal>
     </div>
   );
 };

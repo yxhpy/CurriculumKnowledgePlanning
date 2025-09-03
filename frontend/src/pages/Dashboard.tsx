@@ -11,17 +11,20 @@ import {
 import { Line, Pie } from '@ant-design/charts';
 import { useDashboardStore } from '../stores/dashboardStore';
 import { useDocumentStore } from '../stores/documentStore';
+import { useCourseStore } from '../stores/courseStore';
 
 const { Title, Text } = Typography;
 
 const Dashboard: React.FC = () => {
   const { stats, loading, error, fetchStats } = useDashboardStore();
   const { documents, fetchDocuments } = useDocumentStore();
+  const { courses, fetchCourses } = useCourseStore();
   
   useEffect(() => {
     fetchStats();
     fetchDocuments();
-  }, [fetchStats, fetchDocuments]);
+    fetchCourses();
+  }, [fetchStats, fetchDocuments, fetchCourses]);
 
   // 生成图表数据
   const pieData = useMemo(() => {
@@ -34,17 +37,40 @@ const Dashboard: React.FC = () => {
     }));
   }, [stats.documentStats?.file_type_distribution]);
 
-  // 模拟趋势数据（基于真实文档创建时间）
+  // 基于真实课程创建时间生成趋势数据
   const lineData = useMemo(() => {
-    // 这里可以根据documents的创建时间生成趋势图
-    // 暂时使用固定数据，后续可以改为根据真实数据计算
-    return [
-      { date: '2024-01', value: stats.documentStats ? Math.floor(stats.documentStats.total_documents * 0.3) : 0 },
-      { date: '2024-02', value: stats.documentStats ? Math.floor(stats.documentStats.total_documents * 0.5) : 0 },
-      { date: '2024-03', value: stats.documentStats ? Math.floor(stats.documentStats.total_documents * 0.7) : 0 },
-      { date: '2024-04', value: stats.documentStats ? stats.documentStats.total_documents : 0 },
-    ];
-  }, [stats.documentStats?.total_documents]);
+    if (!courses.length) {
+      return [
+        { date: '无数据', value: 0 }
+      ];
+    }
+
+    // 按月份分组课程
+    const monthlyData: Record<string, number> = {};
+    
+    courses.forEach(course => {
+      const date = new Date(course.created_at);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      monthlyData[monthKey] = (monthlyData[monthKey] || 0) + 1;
+    });
+
+    // 生成最近6个月的数据
+    const result = [];
+    const now = new Date();
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthName = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      result.push({
+        date: monthName,
+        value: monthlyData[monthKey] || 0
+      });
+    }
+
+    return result;
+  }, [courses]);
 
   // 最近活动（基于真实文档数据）
   const recentActivities = useMemo(() => {
@@ -99,25 +125,19 @@ const Dashboard: React.FC = () => {
     colorField: 'type',
     radius: 0.8,
     label: {
-      type: 'outer',
-      content: '{name} {percentage}',
-    },
-    interactions: [
-      {
-        type: 'pie-legend-active',
-      },
-      {
-        type: 'element-active',
-      },
-    ],
+      type: 'outer'
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <Title level={2}>仪表盘</Title>
+    <div className="page-container">
+      <div className="page-header">
+        <Title level={2}>仪表盘</Title>
+      </div>
       
       {/* Statistics Cards */}
-      <Row gutter={[16, 16]}>
+      <div className="page-section">
+        <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
           <Card className="hover:shadow-lg transition-shadow">
             <Statistic
@@ -170,22 +190,30 @@ const Dashboard: React.FC = () => {
           <Card className="hover:shadow-lg transition-shadow">
             <Statistic
               title="文件大小"
-              value={stats.documentStats ? Math.round(stats.documentStats.total_size / 1024 / 1024) : 0}
+              value={stats.documentStats && stats.documentStats.total_size > 0 
+                ? (stats.documentStats.total_size / 1024 / 1024).toFixed(1) 
+                : '0'
+              }
               prefix={<RiseOutlined />}
               suffix="MB"
               valueStyle={{ color: '#cf1322' }}
             />
             <Progress 
-              percent={75} 
+              percent={stats.documentStats && stats.documentStats.total_size > 0 
+                ? Math.min(Math.round((stats.documentStats.total_size / 1024 / 1024) / 100 * 100), 100)
+                : 0
+              } 
               strokeColor="#ff4d4f" 
               showInfo={false} 
             />
           </Card>
         </Col>
-      </Row>
+        </Row>
+      </div>
 
       {/* Charts */}
-      <Row gutter={[16, 16]}>
+      <div className="page-section">
+        <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
           <Card title="课程生成趋势" className="hover:shadow-lg transition-shadow">
             <Line {...lineConfig} height={300} />
@@ -196,10 +224,12 @@ const Dashboard: React.FC = () => {
             <Pie {...pieConfig} height={300} />
           </Card>
         </Col>
-      </Row>
+        </Row>
+      </div>
 
       {/* Recent Activities */}
-      <Card title="最近活动" className="hover:shadow-lg transition-shadow">
+      <div className="page-section">
+        <Card title="最近活动" className="hover:shadow-lg transition-shadow">
         <List
           itemLayout="horizontal"
           dataSource={recentActivities}
@@ -231,7 +261,8 @@ const Dashboard: React.FC = () => {
             </List.Item>
           )}
         />
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };

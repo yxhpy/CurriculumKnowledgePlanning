@@ -3,6 +3,8 @@ LLM service for course content generation using LangChain
 """
 import json
 import logging
+import time
+import asyncio
 from typing import Dict, Any, List, Optional
 from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
@@ -14,6 +16,15 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Custom exceptions
+class LLMEmptyResponseError(Exception):
+    """Raised when LLM returns empty or invalid response"""
+    pass
+
+class LLMMaxRetriesExceededError(Exception):
+    """Raised when all retry attempts are exhausted"""
+    pass
 
 # Pydantic models for structured output
 class CourseIntroduction(BaseModel):
@@ -35,7 +46,7 @@ class LearningObjectives(BaseModel):
     overall_objectives: List[str] = Field(description="Overall course objectives")
     knowledge_objectives: List[LearningObjective] = Field(description="Knowledge objectives")
     skill_objectives: List[LearningObjective] = Field(description="Skill objectives")
-    application_objectives: List[Dict[str, str]] = Field(description="Application objectives")
+    application_objectives: List[LearningObjective] = Field(description="Application objectives")
 
 class ChapterStructure(BaseModel):
     chapter_id: int = Field(description="Chapter ID")
@@ -76,7 +87,8 @@ class SimpleKnowledgePoint(BaseModel):
     description: str = Field(description="知识点描述")
 
 class SimpleSection(BaseModel):
-    title: str = Field(description="小节标题") 
+    title: str = Field(description="小节标题")
+    content: str = Field(description="小节概要内容")
     knowledge_points: List[SimpleKnowledgePoint] = Field(description="知识点列表")
 
 class SimpleChapterContent(BaseModel):
@@ -86,15 +98,68 @@ class LLMService:
     """Service for LLM-based content generation"""
     
     def __init__(self):
+        # 从环境变量中读取配置
+        import os
+        api_key = os.getenv('OPENAI_API_KEY', settings.OPENAI_API_KEY)
+        api_base = os.getenv('OPENAI_API_BASE', settings.OPENAI_API_BASE)
+        model = os.getenv('OPENAI_MODEL', settings.OPENAI_MODEL)
+        
+        logger.info(f"Initializing LLM with model: {model}, base: {api_base}")
+        
         self.llm = ChatOpenAI(
             temperature=0.3,  # 降低温度以获得更稳定的输出
-            model_name=settings.OPENAI_MODEL,
-            openai_api_key=settings.OPENAI_API_KEY,
-            openai_api_base=settings.OPENAI_API_BASE,
-            max_tokens=2000,  # 使用max_tokens而不是max_completion_tokens
-            request_timeout=120,  # 增加超时时间到2分钟
-            max_retries=2  # 减少重试次数以避免长时间等待
+            model_name=model,
+            openai_api_key=api_key,
+            openai_api_base=api_base,
+            max_tokens=4000,  # 增加到4000 tokens以生成更完整的内容
+            request_timeout=180,  # 增加超时时间到3分钟
+            max_retries=0  # 禁用内部重试，使用我们自己的重试机制
         )
+        
+    def _retry_llm_call(self, prompt_messages, max_retries: int = 3, initial_delay: float = 1.0):
+        """Retry LLM call with exponential backoff and enhanced error handling"""
+        last_exception = None
+        
+        for attempt in range(max_retries + 1):
+            try:
+                logger.info(f"LLM call attempt {attempt + 1}/{max_retries + 1}")
+                logger.debug(f"Prompt length: {len(str(prompt_messages))} characters")
+                
+                result = self.llm(prompt_messages)
+                
+                # 详细检查响应质量
+                if not result:
+                    raise LLMEmptyResponseError("LLM returned None result")
+                
+                if not result.content:
+                    raise LLMEmptyResponseError("LLM returned empty content")
+                
+                response_content = result.content.strip()
+                if len(response_content) < 10:
+                    raise LLMEmptyResponseError(f"LLM response too short: {len(response_content)} characters")
+                
+                # 检查是否是有效的JSON开始（对于期待JSON的响应）
+                if response_content and (response_content.startswith('{') or response_content.startswith('[')):
+                    logger.info(f"Valid JSON-like response received on attempt {attempt + 1}")
+                else:
+                    logger.info(f"Non-JSON response received on attempt {attempt + 1}, length: {len(response_content)}")
+                
+                logger.info(f"LLM call successful on attempt {attempt + 1}")
+                logger.debug(f"Response preview: {response_content[:200]}...")
+                
+                return result
+                
+            except (LLMEmptyResponseError, Exception) as e:
+                last_exception = e
+                logger.warning(f"LLM call failed on attempt {attempt + 1}: {type(e).__name__}: {str(e)}")
+                
+                if attempt < max_retries:
+                    delay = initial_delay * (2 ** attempt)  # 指数退避
+                    logger.info(f"Retrying in {delay} seconds...")
+                    time.sleep(delay)
+                else:
+                    logger.error(f"All {max_retries + 1} attempts failed. Final error: {type(last_exception).__name__}: {str(last_exception)}")
+                    raise LLMMaxRetriesExceededError(f"Failed after {max_retries + 1} attempts. Last error: {str(last_exception)}") from last_exception
         
     def generate_course_introduction(self, document_content: str, course_type: str = "通用") -> Dict[str, Any]:
         """Generate course introduction from document content"""
@@ -121,11 +186,26 @@ class LLMService:
 """)
             ])
             
-            result = self.llm(prompt.format_messages())
+            # 使用重试机制
+            result = self._retry_llm_call(prompt.format_messages())
             
-            # Parse the result
-            fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=self.llm)
-            parsed_result = fixing_parser.parse(result.content)
+            # 先尝试直接解析，如果失败则使用修复解析器
+            try:
+                parsed_result = parser.parse(result.content)
+            except Exception as parse_error:
+                logger.warning(f"Direct parsing failed: {parse_error}, using fixing parser")
+                # 手动修复常见的JSON格式问题
+                content = result.content.strip()
+                # 修复缺少逗号的问题
+                import re
+                content = re.sub(r'(\])(\s*"[a-zA-Z_]+"\s*:)', r'\1,\2', content)
+                
+                try:
+                    parsed_result = parser.parse(content)
+                except Exception:
+                    # 如果手动修复也失败，使用OutputFixingParser
+                    fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=self.llm)
+                    parsed_result = fixing_parser.parse(result.content)
             
             return {
                 'success': True,
@@ -171,10 +251,26 @@ SMART原则要求：
 """)
             ])
             
-            result = self.llm(prompt.format_messages())
+            # 使用重试机制
+            result = self._retry_llm_call(prompt.format_messages())
             
-            fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=self.llm)
-            parsed_result = fixing_parser.parse(result.content)
+            # 先尝试直接解析，如果失败则使用修复解析器
+            try:
+                parsed_result = parser.parse(result.content)
+            except Exception as parse_error:
+                logger.warning(f"Direct parsing failed: {parse_error}, using fixing parser")
+                # 手动修复常见的JSON格式问题
+                content = result.content.strip()
+                # 修复缺少逗号的问题（特别是array后面缺少逗号）
+                import re
+                content = re.sub(r'(\])(\s*"[a-zA-Z_]+"\s*:)', r'\1,\2', content)
+                
+                try:
+                    parsed_result = parser.parse(content)
+                except Exception:
+                    # 如果手动修复也失败，使用OutputFixingParser
+                    fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=self.llm)
+                    parsed_result = fixing_parser.parse(result.content)
             
             return {
                 'success': True,
@@ -220,7 +316,8 @@ SMART原则要求：
 """)
             ])
             
-            result = self.llm(prompt.format_messages())
+            # 使用重试机制
+            result = self._retry_llm_call(prompt.format_messages())
             
             fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=self.llm)
             parsed_result = fixing_parser.parse(result.content)
@@ -247,7 +344,8 @@ SMART原则要求：
 重要提醒：
 1. 必须输出完整有效的JSON格式
 2. 所有文本内容必须使用中文
-3. 不要添加任何JSON之外的文字说明"""),
+3. 不要添加任何JSON之外的文字说明
+4. 明确区分概要和详细内容的层次"""),
                 HumanMessage(content=f"""
 请为第{chapter_number}章生成详细的教学内容结构，严格按照JSON格式输出。
 
@@ -260,10 +358,20 @@ SMART原则要求：
 
 要求：
 1. 生成3-4个小节（Section）
-2. 每个小节2-3个知识点
+2. 每个小节包含：
+   - title: 小节标题
+   - description: 小节简述（1-2句话概括本小节的学习内容）
+   - content: **小节概要** - 用一段话概括描述本小节的整体内容安排和学习要点，不要列举具体知识点
+   - knowledge_points: 2-3个具体知识点，每个包含具体的学习要点
 3. 知识点ID格式：{chapter_number}.1.1, {chapter_number}.1.2等
-4. 所有内容必须中文
-5. 严格JSON格式输出
+4. **关键区别**：
+   - section.content: 是整个小节的概要描述，类似"本小节将学习..."，"通过学习本小节，学生将掌握..."这样的概括性描述
+   - knowledge_points[].description: 是具体知识点的详细学习内容和要点，应该具体而详实
+5. 示例：
+   - section.content: "本小节将介绍图形设计的基本概念和应用范畴，帮助学生建立对图形设计的整体认知框架..."
+   - knowledge_point.description: "图形设计是指使用视觉元素（如图像、文字、颜色等）来传达信息、表达思想或创造美感的艺术和实践。其范畴包括平面设计、网页设计、UI设计、包装设计等。"
+6. 所有内容必须中文
+7. 严格JSON格式输出
 
 {parser.get_format_instructions()}
 
@@ -271,7 +379,8 @@ SMART原则要求：
 """)
             ])
             
-            result = self.llm(prompt.format_messages())
+            # 使用重试机制
+            result = self._retry_llm_call(prompt.format_messages())
             
             # 多层次的JSON解析尝试
             response_content = result.content.strip()
@@ -321,8 +430,170 @@ SMART原则要求：
                 'error': str(e)
             }
     
+    async def generate_knowledge_graph(self, course_content: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate enhanced knowledge graph from course content"""
+        try:
+            prompt = ChatPromptTemplate.from_messages([
+                SystemMessage(content="你是一位知识图谱专家，擅长识别和构建知识点之间的复杂关系。"),
+                HumanMessage(content=f"""
+基于以下课程内容，生成增强的知识图谱。
+
+课程内容：
+{json.dumps(course_content, ensure_ascii=False, indent=2)[:4000]}
+
+请分析并构建知识图谱：
+
+1. **节点类型**：
+   - course: 课程根节点
+   - chapter: 章节节点  
+   - topic: 主题/小节节点
+   - concept: 概念节点
+   - skill: 技能节点
+   - tool: 工具节点
+
+2. **关系类型**：
+   - contains: 包含关系（上级包含下级）
+   - prerequisite: 前置依赖（A是B的前提）
+   - dependency: 依赖关系（A依赖于B）
+   - related: 相关关系（A与B相关）
+   - applies: 应用关系（A应用于B）
+
+3. **智能分析**：
+   - 识别隐含的前置依赖关系
+   - 发现知识点之间的交叉引用
+   - 构建合理的学习路径
+
+请严格按照以下JSON格式输出：
+{{
+    "nodes": [
+        {{
+            "id": "course_1",
+            "label": "{course_content.get('title', '课程')}",
+            "type": "course",
+            "level": 0,
+            "description": "课程根节点"
+        }},
+        {{
+            "id": "chapter_1",
+            "label": "章节名称",
+            "type": "chapter", 
+            "level": 1,
+            "description": "章节描述"
+        }},
+        {{
+            "id": "topic_1",
+            "label": "主题名称",
+            "type": "topic",
+            "level": 2, 
+            "description": "主题描述"
+        }},
+        {{
+            "id": "concept_1",
+            "label": "概念名称",
+            "type": "concept",
+            "level": 3,
+            "description": "概念描述"
+        }}
+    ],
+    "edges": [
+        {{
+            "from": "course_1",
+            "to": "chapter_1", 
+            "relationship": "contains",
+            "label": "包含"
+        }},
+        {{
+            "from": "concept_1",
+            "to": "concept_2",
+            "relationship": "prerequisite", 
+            "label": "前置依赖"
+        }}
+    ]
+}}
+
+注意：请确保所有节点ID唯一，关系合理，层级清晰。
+""")
+            ])
+            
+            # 使用重试机制
+            result = self._retry_llm_call(prompt.format_messages())
+            
+            # Parse JSON response
+            try:
+                graph_data = json.loads(result.content)
+                
+                # Validate and enhance the graph data
+                if "nodes" in graph_data and "edges" in graph_data:
+                    return graph_data
+                else:
+                    raise ValueError("Invalid graph structure")
+                    
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.warning(f"Failed to parse AI-generated graph, using fallback: {str(e)}")
+                # Fallback to basic structure-based graph
+                return self._generate_fallback_graph(course_content)
+                    
+        except Exception as e:
+            logger.error(f"Error generating enhanced knowledge graph: {str(e)}")
+            # Return fallback graph
+            return self._generate_fallback_graph(course_content)
+    
+    def _generate_fallback_graph(self, course_content: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate basic knowledge graph as fallback"""
+        nodes = []
+        edges = []
+        
+        # Add course node
+        nodes.append({
+            "id": "course_1",
+            "label": course_content.get("title", "课程"),
+            "type": "course",
+            "level": 0,
+            "description": course_content.get("description", "")
+        })
+        
+        # Add chapter and section nodes
+        for i, chapter in enumerate(course_content.get("chapters", []), 1):
+            chapter_id = f"chapter_{i}"
+            nodes.append({
+                "id": chapter_id,
+                "label": chapter.get("title", f"第{i}章"),
+                "type": "chapter",
+                "level": 1,
+                "description": chapter.get("description", "")
+            })
+            
+            # Add edge from course to chapter
+            edges.append({
+                "from": "course_1",
+                "to": chapter_id,
+                "relationship": "contains",
+                "label": "包含"
+            })
+            
+            # Add section nodes
+            for j, section in enumerate(chapter.get("sections", []), 1):
+                section_id = f"section_{i}_{j}"
+                nodes.append({
+                    "id": section_id,
+                    "label": section.get("title", f"第{j}节"),
+                    "type": "topic",
+                    "level": 2,
+                    "description": section.get("description", "")
+                })
+                
+                # Add edge from chapter to section
+                edges.append({
+                    "from": chapter_id,
+                    "to": section_id,
+                    "relationship": "contains", 
+                    "label": "包含"
+                })
+        
+        return {"nodes": nodes, "edges": edges}
+
     def generate_knowledge_graph_data(self, course_structure: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate knowledge graph data from course structure"""
+        """Generate knowledge graph data from course structure (legacy method)"""
         try:
             prompt = ChatPromptTemplate.from_messages([
                 SystemMessage(content="你是一位知识图谱专家，擅长识别和构建知识点之间的关系。"),
@@ -352,7 +623,8 @@ SMART原则要求：
 """)
             ])
             
-            result = self.llm(prompt.format_messages())
+            # 使用重试机制
+            result = self._retry_llm_call(prompt.format_messages())
             
             # Parse JSON response
             try:
@@ -399,11 +671,12 @@ SMART原则要求：
 {{
   "sections": [
     {{
-      "title": "小节标题",
+      "title": "图形设计基础入门",
+      "content": "本小节帮助学生建立图形设计的基础认知框架，掌握设计的核心理念和基本原理，为后续深入学习各类设计工具和技法打下坚实基础。",
       "knowledge_points": [
         {{
-          "title": "知识点标题",
-          "description": "知识点描述"
+          "title": "图形设计的定义",
+          "description": "图形设计是通过视觉元素（如图像、文字、颜色等）来传达信息、表达思想或创造美感的艺术和实践。其范畴包括平面设计、网页设计、UI设计、包装设计等多个领域。"
         }}
       ]
     }}
@@ -412,23 +685,27 @@ SMART原则要求：
 
 要求：
 1. 生成2个小节
-2. 每个小节2个知识点
-3. 所有内容中文
-4. 严格JSON格式
+2. 每个小节包含：
+   - title: 小节标题
+   - content: 小节概要（必须是概括性总结，说明学习目标和意义，禁止列举具体知识点内容）
+   - knowledge_points: 2个具体知识点，每个包含详细的学习内容
+3. **严格区别**：
+   - content: 只写学习目标，例如"本小节帮助学生建立XX的基础认知，掌握XX的核心概念，为后续学习打下基础"
+   - description: 写具体知识点的详细内容，包括定义、特点、应用等
+4. **禁止**：
+   - content中不能包含knowledge_points中的任何具体内容
+   - description中不能重复content的内容
+5. 所有内容中文
+6. 严格JSON格式
 
 直接输出JSON，不要任何额外文字：
 """)])
             
-            result = self.llm(prompt.format_messages())
+            # 使用重试机制
+            result = self._retry_llm_call(prompt.format_messages())
             response_content = result.content.strip()
             
             logger.info(f"Simple LLM response for chapter {chapter_number}: '{response_content}'")
-            
-            if not response_content:
-                return {
-                    'success': False,
-                    'error': 'LLM returned empty response'
-                }
             
             # 尝试解析JSON
             try:
@@ -474,7 +751,8 @@ SMART原则要求：
                 HumanMessage(content=f"{prompt}\n\n{content}")
             ]
             
-            result = self.llm(messages)
+            # 使用重试机制
+            result = self._retry_llm_call(messages)
             return result.content
             
         except Exception as e:

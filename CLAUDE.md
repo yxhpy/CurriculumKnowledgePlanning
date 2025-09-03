@@ -220,6 +220,9 @@ WEAVIATE_URL=http://localhost:8080
 - Reference documentation in CLAUDE.md with clear usage contexts
 - Track and document all resolved issues to prevent recurrence
 - 测试时除了前端在本地运行，其余在docker运行
+- 每次进行测试前，必须重启前后端服务，以保证运行最新的代码
+- 每次修改需要修改本地代码，重启docker容器，然后测试修复后的代码
+- 每次修复测试通过后，及时提交代码到远程
 
 ### DON'T:
 - Modify database schemas without migration files
@@ -320,12 +323,14 @@ Always include:
 | API Specifications | `docs/api/api-specification.md` | When implementing, modifying, or testing API endpoints |
 | Database Schema | `docs/database/database-schema.md` | When working with database models, queries, or migrations |
 | Development Guide | `docs/development/development-guide.md` | When setting up development environment or learning workflows |
+| Frontend Standards | `docs/development/frontend-standards.md` | When developing React/TypeScript components, implementing UI features, or ensuring frontend code quality |
 | Deployment Guide | `docs/deployment/deployment-guide.md` | When deploying to different environments or configuring CI/CD |
 | Testing Guide | `docs/testing/testing-guide.md` | When writing tests, setting up test infrastructure, or planning test strategies |
 | E2E Testing with Playwright | `docs/tools/playwright-mcp.md` | When writing frontend E2E tests or validating UI features |
 | Requirements Analysis | `docs/requirements/final_article.md` | When understanding business requirements and project scope |
 | Error Tracking | `docs/development/error-tracking.md` | When debugging issues or preventing error recurrence |
 | Optimization Log | `docs/development/optimization-log.md` | When implementing performance improvements or architectural changes |
+| 提交代码规范 | `docs/development/git-commit-guidelines.md` | 当提交代码时，必须按照规范提交，否则会被拒绝合并 |
 
 ### Document Creation Rules:
 1. Complex specifications exceeding 50 lines → Create in `docs/`

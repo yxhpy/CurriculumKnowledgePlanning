@@ -41,6 +41,99 @@ html {
   box-shadow: 2px 0 8px 0 rgba(0, 0, 0, 0.05);
 }
 
+/* Global page layout classes */
+.page-container {
+  margin: -8px;
+}
+
+.page-header {
+  padding: 0 8px 24px 8px;
+}
+
+.page-section {
+  padding: 0 8px;
+  margin-bottom: 24px;
+}
+
+.page-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Consistent row spacing */
+.ant-row {
+  margin-left: -8px !important;
+  margin-right: -8px !important;
+}
+
+.ant-col {
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+/* Row with spacing */
+.row-spacing {
+  margin-bottom: 24px !important;
+}
+
+/* Clean menu styling */
+.ant-menu-inline .ant-menu-item {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  height: 48px !important;
+  padding-left: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  transition: all 0.2s ease !important;
+  border-right: 3px solid transparent !important;
+}
+
+.ant-menu-inline .ant-menu-item:hover {
+  background-color: #f5f5f5 !important;
+}
+
+.ant-menu-inline .ant-menu-item-selected {
+  background-color: #e6f4ff !important;
+  color: #1677ff !important;
+  font-weight: 500 !important;
+  border-right: 3px solid #1677ff !important;
+}
+
+.ant-menu-inline .ant-menu-item-selected::after {
+  display: none !important;
+}
+
+.ant-menu-inline .ant-menu-item-selected .anticon {
+  color: #1677ff !important;
+}
+
+/* Submenu styling */
+.ant-menu-inline .ant-menu-submenu-title {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  height: 48px !important;
+  padding-left: 24px !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-menu-inline .ant-menu-submenu-title:hover {
+  background-color: #f5f5f5 !important;
+}
+
+.ant-menu-inline .ant-menu-submenu-open .ant-menu-submenu-title {
+  background-color: #f0f0f0 !important;
+  color: #1677ff !important;
+}
+
+.ant-menu-inline .ant-menu-sub {
+  background: transparent !important;
+}
+
+.ant-menu-inline .ant-menu-sub .ant-menu-item {
+  height: 40px !important;
+  padding-left: 48px !important;
+  font-size: 13px !important;
+}
+
 .ant-card {
   border-radius: 12px;
 }

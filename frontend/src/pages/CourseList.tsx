@@ -34,7 +34,7 @@ const { Search } = Input;
 
 const CourseList: React.FC = () => {
   const navigate = useNavigate();
-  const { courses, loading, error, fetchCourses } = useCourseStore();
+  const { courses, loading, error, fetchCourses, deleteCourse } = useCourseStore();
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -59,6 +59,11 @@ const CourseList: React.FC = () => {
       filtered = filtered.filter(course => course.status === statusFilter);
     }
 
+    // 按创建时间倒序排列（最新的在前面）
+    filtered = filtered.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
     setFilteredCourses(filtered);
   }, [courses, searchText, statusFilter]);
 
@@ -74,10 +79,10 @@ const CourseList: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      // TODO: Implement course deletion API
+      await deleteCourse(id);
       message.success('课程删除成功');
-      fetchCourses();
     } catch (error) {
+      console.error('Delete course error:', error);
       message.error('删除失败，请重试');
     }
   };
@@ -159,7 +164,7 @@ const CourseList: React.FC = () => {
             type="text"
             icon={<EditOutlined />}
             size="small"
-            onClick={() => navigate(`/course/${record.id}/edit`)}
+            onClick={() => navigate(`/course/${record.id}`)}
           >
             编辑
           </Button>
@@ -193,20 +198,23 @@ const CourseList: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <Title level={2}>课程管理</Title>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => navigate('/generate')}
-        >
-          创建新课程
-        </Button>
+    <div className="page-container">
+      <div className="page-header">
+        <div className="flex justify-between items-center">
+          <Title level={2}>课程管理</Title>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => navigate('/generate')}
+          >
+            创建新课程
+          </Button>
+        </div>
       </div>
 
       {/* 统计卡片 */}
-      <Row gutter={16}>
+      <div className="page-section">
+        <Row gutter={16}>
         <Col span={6}>
           <Card>
             <Statistic
@@ -243,10 +251,12 @@ const CourseList: React.FC = () => {
             />
           </Card>
         </Col>
-      </Row>
+        </Row>
+      </div>
 
       {/* 搜索和过滤 */}
-      <Card>
+      <div className="page-section">
+        <Card>
         <Row gutter={16} className="mb-4">
           <Col span={12}>
             <Search
@@ -287,10 +297,12 @@ const CourseList: React.FC = () => {
               `显示 ${range[0]}-${range[1]} 条，共 ${total} 条`,
           }}
         />
-      </Card>
+        </Card>
+      </div>
 
       {error && (
-        <Card>
+        <div className="page-section">
+          <Card>
           <div className="text-center py-8 text-red-500">
             {error}
             <br />
@@ -298,7 +310,8 @@ const CourseList: React.FC = () => {
               重试
             </Button>
           </div>
-        </Card>
+          </Card>
+        </div>
       )}
     </div>
   );

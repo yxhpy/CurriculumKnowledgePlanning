@@ -14,6 +14,7 @@ interface CourseStore {
   generatedCourseId: number | null;
   
   fetchCourses: () => Promise<void>;
+  deleteCourse: (id: number) => Promise<void>;
   generateCourse: (data: {
     document_ids: number[];
     course_config: {
@@ -49,6 +50,22 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
       set({ courses, loading: false });
     } catch (error) {
       set({ error: 'Failed to fetch courses', loading: false });
+    }
+  },
+
+  deleteCourse: async (id: number) => {
+    set({ loading: true, error: null });
+    try {
+      await courseAPI.deleteCourse(id);
+      // Remove the deleted course from the local state
+      const currentCourses = get().courses;
+      set({ 
+        courses: currentCourses.filter(course => course.id !== id),
+        loading: false 
+      });
+    } catch (error) {
+      set({ error: 'Failed to delete course', loading: false });
+      throw error;
     }
   },
   

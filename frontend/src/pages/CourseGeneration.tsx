@@ -15,6 +15,7 @@ import {
   message,
   Progress,
 } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import { useDocumentStore } from '../stores/documentStore';
 import { useCourseStore } from '../stores/courseStore';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -29,6 +30,7 @@ const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 const CourseGeneration: React.FC = () => {
+  const navigate = useNavigate();
   const [current, setCurrent] = useState(0);
   const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
   const [courseConfig, setCourseConfig] = useState<any>({});
@@ -368,16 +370,16 @@ const CourseGeneration: React.FC = () => {
             extra={!error ? [
               <Button type="primary" key="view" onClick={() => {
                 if (generatedCourseId) {
-                  // 跳转到课程详情页面
-                  window.location.href = `/courses/${generatedCourseId}`;
+                  // 跳转到课程详情页面查看
+                  navigate(`/course/${generatedCourseId}`);
                 }
               }}>
                 查看课程
               </Button>,
               <Button key="edit" onClick={() => {
                 if (generatedCourseId) {
-                  // 跳转到课程编辑页面
-                  window.location.href = `/courses/${generatedCourseId}/edit`;
+                  // 跳转到课程详情页面编辑
+                  navigate(`/course/${generatedCourseId}`);
                 }
               }}>
                 编辑课程
@@ -434,10 +436,13 @@ const CourseGeneration: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <Title level={2}>智能课程生成</Title>
+    <div className="page-container">
+      <div className="page-header">
+        <Title level={2}>智能课程生成</Title>
+      </div>
       
-      <Card className="shadow-lg">
+      <div className="page-section">
+        <Card className="shadow-lg">
         <Steps current={current} items={steps} />
         <Divider />
         
@@ -462,7 +467,8 @@ const CourseGeneration: React.FC = () => {
             </Button>
           )}
         </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };

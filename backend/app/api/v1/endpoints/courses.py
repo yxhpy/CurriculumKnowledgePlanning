@@ -19,8 +19,14 @@ async def generate_course(
     course_config = request_data.get("course_config", {})
     
     # Create course record immediately
+    # 支持多种可能的字段名
+    title = (course_config.get("name") or 
+             course_config.get("title") or 
+             course_config.get("courseName") or 
+             "AI生成课程")
+    
     course = Course(
-        title=course_config.get("name", "AI生成课程"),
+        title=title,
         description="通过AI自动生成的课程内容",
         target_audience=course_config.get("audience", ""),
         difficulty_level=course_config.get("level", "intermediate"),
@@ -204,6 +210,226 @@ async def get_course_detail(
     
     return course_detail
 
+@router.put("/{course_id}")
+async def update_course(
+    course_id: int,
+    course_data: dict,
+    db: Session = Depends(get_db)
+):
+    """Update course basic information"""
+    from app.models.course import Course
+    
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    # Update basic course information
+    if 'title' in course_data:
+        course.title = course_data['title']
+    if 'description' in course_data:
+        course.description = course_data['description']
+    if 'difficulty_level' in course_data:
+        course.difficulty_level = course_data['difficulty_level']
+    if 'target_audience' in course_data:
+        course.target_audience = course_data['target_audience']
+    if 'estimated_hours' in course_data:
+        course.estimated_hours = float(course_data['estimated_hours'])
+    if 'status' in course_data:
+        course.status = course_data['status']
+    
+    db.commit()
+    db.refresh(course)
+    
+    return {
+        "id": course.id,
+        "title": course.title,
+        "description": course.description,
+        "difficulty_level": course.difficulty_level,
+        "target_audience": course.target_audience,
+        "estimated_hours": course.estimated_hours,
+        "status": course.status,
+        "updated_at": course.updated_at.isoformat() if course.updated_at else ""
+    }
+
+@router.put("/{course_id}/chapters/{chapter_id}")
+async def update_chapter(
+    course_id: int,
+    chapter_id: int,
+    chapter_data: dict,
+    db: Session = Depends(get_db)
+):
+    """Update chapter information"""
+    from app.models.course import Course, Chapter
+    
+    # Verify course exists
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    # Find the chapter
+    chapter = db.query(Chapter).filter(
+        Chapter.id == chapter_id,
+        Chapter.course_id == course_id
+    ).first()
+    
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    
+    # Update chapter information
+    if 'title' in chapter_data:
+        chapter.title = chapter_data['title']
+    if 'description' in chapter_data:
+        chapter.description = chapter_data['description']
+    if 'estimated_hours' in chapter_data:
+        chapter.estimated_hours = float(chapter_data['estimated_hours'])
+    if 'difficulty_level' in chapter_data:
+        chapter.difficulty_level = chapter_data['difficulty_level']
+    if 'learning_objectives' in chapter_data:
+        chapter.learning_objectives = chapter_data['learning_objectives']
+    
+    db.commit()
+    db.refresh(chapter)
+    
+    return {
+        "id": chapter.id,
+        "chapter_number": chapter.chapter_number,
+        "title": chapter.title,
+        "description": chapter.description,
+        "estimated_hours": chapter.estimated_hours,
+        "difficulty_level": chapter.difficulty_level,
+        "learning_objectives": chapter.learning_objectives
+    }
+
+@router.put("/{course_id}/chapters/{chapter_id}/sections/{section_id}")
+async def update_section(
+    course_id: int,
+    chapter_id: int,
+    section_id: int,
+    section_data: dict,
+    db: Session = Depends(get_db)
+):
+    """Update section information"""
+    from app.models.course import Course, Chapter, Section
+    
+    # Verify course and chapter exist
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+        
+    chapter = db.query(Chapter).filter(
+        Chapter.id == chapter_id,
+        Chapter.course_id == course_id
+    ).first()
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    
+    # Find the section
+    section = db.query(Section).filter(
+        Section.id == section_id,
+        Section.chapter_id == chapter_id
+    ).first()
+    
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+    
+    # Update section information
+    if 'title' in section_data:
+        section.title = section_data['title']
+    if 'description' in section_data:
+        section.description = section_data['description']
+    if 'content' in section_data:
+        section.content = section_data['content']
+    if 'estimated_minutes' in section_data:
+        section.estimated_minutes = int(section_data['estimated_minutes'])
+    
+    db.commit()
+    db.refresh(section)
+    
+    return {
+        "id": section.id,
+        "section_number": section.section_number,
+        "title": section.title,
+        "description": section.description,
+        "content": section.content,
+        "estimated_minutes": section.estimated_minutes
+    }
+
+@router.put("/{course_id}/chapters/{chapter_id}/sections/{section_id}/knowledge-points/{point_id}")
+async def update_knowledge_point(
+    course_id: int,
+    chapter_id: int,
+    section_id: int,
+    point_id: int,
+    point_data: dict,
+    db: Session = Depends(get_db)
+):
+    """Update knowledge point information"""
+    from app.models.course import Course, Chapter, Section, KnowledgePoint
+    
+    # Verify course, chapter, and section exist
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+        
+    chapter = db.query(Chapter).filter(
+        Chapter.id == chapter_id,
+        Chapter.course_id == course_id
+    ).first()
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+        
+    section = db.query(Section).filter(
+        Section.id == section_id,
+        Section.chapter_id == chapter_id
+    ).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+    
+    # Find the knowledge point
+    knowledge_point = db.query(KnowledgePoint).filter(
+        KnowledgePoint.id == point_id,
+        KnowledgePoint.section_id == section_id
+    ).first()
+    
+    if not knowledge_point:
+        raise HTTPException(status_code=404, detail="Knowledge point not found")
+    
+    # Update knowledge point information
+    if 'title' in point_data:
+        knowledge_point.title = point_data['title']
+    if 'description' in point_data:
+        knowledge_point.description = point_data['description']
+    if 'point_type' in point_data:
+        knowledge_point.point_type = point_data['point_type']
+    
+    db.commit()
+    db.refresh(knowledge_point)
+    
+    return {
+        "id": knowledge_point.id,
+        "point_id": knowledge_point.point_id,
+        "title": knowledge_point.title,
+        "description": knowledge_point.description,
+        "point_type": knowledge_point.point_type
+    }
+
+@router.delete("/{course_id}")
+async def delete_course(
+    course_id: int,
+    db: Session = Depends(get_db)
+):
+    """Delete a course and all its related data"""
+    from app.models.course import Course
+    
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    db.delete(course)
+    db.commit()
+    
+    return {"message": f"Course {course_id} deleted successfully"}
+
 def run_course_generation_sync(course_id: int, document_ids: List[int], config: dict):
     """同步执行课程生成任务，在线程池中运行以避免阻塞主事件循环"""
     import asyncio
@@ -287,12 +513,19 @@ async def generate_course_content_task_impl(course_id: int, document_ids: List[i
         
         if intro_result['success']:
             intro_data = intro_result['data']
+            # 更新课程标题和描述
+            if intro_data.get('title'):
+                course.title = intro_data.get('title')
+            course.description = intro_data.get('brief_description') or course.description
             course.brief_description = intro_data.get('brief_description')
             course.target_audience = intro_data.get('target_audience')
             course.prerequisites = intro_data.get('prerequisites')
             course.learning_outcomes = intro_data.get('learning_outcomes', [])
             course.course_highlights = intro_data.get('course_highlights', [])
             course.difficulty_level = intro_data.get('difficulty_level', 'intermediate')
+            # 立即提交课程基本信息更新
+            db.commit()
+            db.refresh(course)
             logger.info("Course introduction generated successfully")
             await send_progress_update(task_id, "introduction", 30, "课程介绍生成完成")
         else:
@@ -402,19 +635,22 @@ async def generate_course_content_task_impl(course_id: int, document_ids: List[i
                     
                     # Create sections and knowledge points
                     for i, section_info in enumerate(sections_data, 1):
+                        # 使用LLM生成的概要内容，而不是重新构建
+                        section_content = section_info.get('content', f"## {section_info.get('title', '')}\n\n暂无内容概要")
+                        knowledge_points_data = section_info.get('knowledge_points', [])
+                        
                         section = Section(
                             chapter_id=chapter.id,
                             section_number=f"{chapter.chapter_number}.{i}",
                             title=section_info.get('title', ''),
-                            description=f"第{chapter.chapter_number}.{i}节内容",
-                            content=section_info.get('title', ''),  # 使用标题作为内容
+                            description=f"第{chapter.chapter_number}.{i}节 - {section_info.get('title', '')}",
+                            content=section_content,  # 保存详细的内容
                             estimated_minutes=45
                         )
                         db.add(section)
                         db.flush()  # Get section ID
                         
                         # Create knowledge points
-                        knowledge_points_data = section_info.get('knowledge_points', [])
                         for j, kp_info in enumerate(knowledge_points_data, 1):
                             from app.models.course import KnowledgePoint
                             knowledge_point = KnowledgePoint(
@@ -432,11 +668,29 @@ async def generate_course_content_task_impl(course_id: int, document_ids: List[i
                 else:
                     logger.error(f"Failed to generate content for Chapter {chapter.chapter_number}: {content_result.get('error')}")
                     # Create a basic section as fallback
+                    fallback_content = f"""## 第{chapter.chapter_number}章内容概述
+
+### 主要内容：
+本章将介绍{chapter.title}的核心概念和重要知识点。
+
+### 学习目标：
+通过本章学习，学员将能够：
+- 理解{chapter.title}的基本概念
+- 掌握相关的实践方法
+- 应用所学知识解决实际问题
+
+### 重点内容：
+1. **基础概念** - 介绍基本理论和定义
+2. **实践方法** - 学习具体的操作技能  
+3. **案例分析** - 通过实例深化理解
+4. **总结与展望** - 整合知识并展望发展"""
+                    
                     section = Section(
                         chapter_id=chapter.id,
                         section_number=f"{chapter.chapter_number}.1",
                         title=f"第{chapter.chapter_number}章内容概述",
-                        content="本章节内容概述...",
+                        description=f"第{chapter.chapter_number}章 - {chapter.title}概述",
+                        content=fallback_content,
                         estimated_minutes=60
                     )
                     db.add(section)
@@ -444,11 +698,27 @@ async def generate_course_content_task_impl(course_id: int, document_ids: List[i
             except Exception as e:
                 logger.error(f"Error generating content for Chapter {chapter.chapter_number}: {str(e)}")
                 # Create fallback section
+                error_fallback_content = f"""## 第{chapter.chapter_number}章内容
+
+### 内容生成状态：
+章节内容生成过程中遇到技术问题，系统正在处理中。
+
+### 临时内容：
+本章节将涵盖{chapter.title}相关的重要内容，包括：
+- 核心概念和理论基础
+- 实际应用和操作方法
+- 案例分析和最佳实践
+
+请稍后刷新页面查看完整内容，或联系管理员获取帮助。
+
+**错误信息：** {str(e)[:100]}..."""
+
                 section = Section(
                     chapter_id=chapter.id,
                     section_number=f"{chapter.chapter_number}.1",
                     title=f"第{chapter.chapter_number}章内容",
-                    content="章节内容生成中遇到错误，请稍后重试",
+                    description=f"第{chapter.chapter_number}章 - 内容生成中",
+                    content=error_fallback_content,
                     estimated_minutes=60
                 )
                 db.add(section)

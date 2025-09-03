@@ -6,7 +6,7 @@ import {
   List,
   Tag,
   Progress,
-  message,
+  App,
   Typography,
   Space,
   Tooltip,
@@ -41,6 +41,7 @@ interface DocumentItem {
 }
 
 const DocumentUpload: React.FC = () => {
+  const { message } = App.useApp();
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -121,13 +122,16 @@ const DocumentUpload: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <Title level={2}>文档上传与处理</Title>
-        <Text type="secondary">支持 PDF、Word、Excel、文本、Markdown 格式</Text>
+    <div className="page-container">
+      <div className="page-header">
+        <div className="flex justify-between items-center">
+          <Title level={2}>文档上传与处理</Title>
+          <Text type="secondary">支持 PDF、Word、Excel、文本、Markdown 格式</Text>
+        </div>
       </div>
 
-      <Card className="shadow-md">
+      <div className="page-section">
+        <Card className="shadow-md">
         <Dragger {...uploadProps} className="bg-gray-50">
           <p className="ant-upload-drag-icon">
             <InboxOutlined className="text-5xl text-primary-500" />
@@ -137,10 +141,12 @@ const DocumentUpload: React.FC = () => {
             支持单个或批量上传，严禁上传公司数据或其他敏感文件
           </p>
         </Dragger>
-      </Card>
+        </Card>
+      </div>
 
       {documents.length > 0 && (
-        <Card title="已上传文档" className="shadow-md">
+        <div className="page-section">
+          <Card title="已上传文档" className="shadow-md">
           <List
             itemLayout="horizontal"
             dataSource={documents}
@@ -192,7 +198,8 @@ const DocumentUpload: React.FC = () => {
               </List.Item>
             )}
           />
-        </Card>
+          </Card>
+        </div>
       )}
 
       <Modal
