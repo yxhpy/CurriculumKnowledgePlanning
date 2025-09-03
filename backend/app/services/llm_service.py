@@ -91,7 +91,7 @@ class LLMService:
             model_name=settings.OPENAI_MODEL,
             openai_api_key=settings.OPENAI_API_KEY,
             openai_api_base=settings.OPENAI_API_BASE,
-            max_completion_tokens=2000,  # 修复: 使用max_completion_tokens而不是max_tokens
+            max_tokens=2000,  # 使用max_tokens而不是max_completion_tokens
             request_timeout=120,  # 增加超时时间到2分钟
             max_retries=2  # 减少重试次数以避免长时间等待
         )

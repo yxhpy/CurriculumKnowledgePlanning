@@ -109,12 +109,100 @@ async def get_course(
     course_id: int,
     db: Session = Depends(get_db)
 ):
-    """Get course details"""
+    """Get course basic info"""
+    from app.models.course import Course
+    
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
     return {
-        "id": course_id,
-        "title": "Sample Course",
-        "description": "Course details"
+        "id": course.id,
+        "title": course.title,
+        "description": course.description or "AI生成的课程",
+        "status": course.status,
+        "created_at": course.created_at.isoformat() if course.created_at else ""
     }
+
+@router.get("/{course_id}/detail")
+async def get_course_detail(
+    course_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get complete course details with chapters, sections, and knowledge points"""
+    from app.models.course import Course, Chapter, Section, KnowledgePoint
+    from sqlalchemy.orm import selectinload, joinedload
+    
+    # Query course with all related data
+    course = db.query(Course).options(
+        selectinload(Course.chapters).options(
+            selectinload(Chapter.sections).options(
+                selectinload(Section.knowledge_points)
+            )
+        )
+    ).filter(Course.id == course_id).first()
+    
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    # Format the response
+    course_detail = {
+        "id": course.id,
+        "title": course.title or "AI生成课程",
+        "description": course.description or course.brief_description or "通过AI自动生成的课程内容",
+        "difficulty_level": course.difficulty_level or "beginner",
+        "target_audience": course.target_audience or "所有学习者",
+        "estimated_hours": course.estimated_hours or 0,
+        "status": course.status,
+        "created_at": course.created_at.isoformat() if course.created_at else "",
+        "updated_at": course.updated_at.isoformat() if course.updated_at else "",
+        "chapters": []
+    }
+    
+    # Format chapters
+    for chapter in sorted(course.chapters, key=lambda x: x.chapter_number):
+        chapter_data = {
+            "id": chapter.id,
+            "chapter_number": chapter.chapter_number,
+            "title": chapter.title,
+            "description": chapter.description or "",
+            "estimated_hours": chapter.estimated_hours or 0,
+            "difficulty_level": chapter.difficulty_level or "beginner",
+            "learning_objectives": chapter.learning_objectives or [],
+            "sections": []
+        }
+        
+        # Format sections
+        if chapter.sections:
+            for section in sorted(chapter.sections, key=lambda x: x.section_number):
+                section_data = {
+                    "id": section.id,
+                    "section_number": section.section_number,
+                    "title": section.title,
+                    "description": section.description or "",
+                    "content": section.content or "",
+                    "estimated_minutes": section.estimated_minutes or 0,
+                    "knowledge_points": []
+                }
+                
+                # Format knowledge points
+                if section.knowledge_points:
+                    for point in sorted(section.knowledge_points, key=lambda x: x.point_id):
+                        point_data = {
+                            "id": point.id,
+                            "point_id": point.point_id,
+                            "title": point.title,
+                            "description": point.description or "",
+                            "point_type": point.point_type or "concept",
+                            "estimated_minutes": 15  # Default estimate, since not in database
+                        }
+                        section_data["knowledge_points"].append(point_data)
+                
+                chapter_data["sections"].append(section_data)
+        
+        course_detail["chapters"].append(chapter_data)
+    
+    return course_detail
 
 def run_course_generation_sync(course_id: int, document_ids: List[int], config: dict):
     """同步执行课程生成任务，在线程池中运行以避免阻塞主事件循环"""
