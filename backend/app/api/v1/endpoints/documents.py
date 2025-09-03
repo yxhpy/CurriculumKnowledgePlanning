@@ -109,6 +109,35 @@ def process_document_task(document_id: int, file_path: str, file_type: str):
     finally:
         db.close()
 
+@router.get("/stats")
+async def get_document_stats(db: Session = Depends(get_db)):
+    """Get document statistics"""
+    from sqlalchemy import func
+    
+    # 总文档数
+    total_documents = db.query(Document).count()
+    
+    # 各状态文档数
+    processed_documents = db.query(Document).filter(Document.status == "processed").count()
+    failed_documents = db.query(Document).filter(Document.status == "failed").count()
+    
+    # 总文件大小
+    total_size = db.query(func.sum(Document.file_size)).scalar() or 0
+    
+    # 文件类型分布
+    file_type_distribution = db.query(
+        Document.file_type.label('type'),
+        func.count(Document.id).label('count')
+    ).group_by(Document.file_type).all()
+    
+    return {
+        "total_documents": total_documents,
+        "processed_documents": processed_documents,
+        "failed_documents": failed_documents,
+        "total_size": total_size,
+        "file_type_distribution": [{"type": item.type, "count": item.count} for item in file_type_distribution]
+    }
+
 @router.get("/", response_model=List[DocumentList])
 async def list_documents(
     skip: int = 0,

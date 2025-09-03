@@ -1,0 +1,70 @@
+Python编程基础教程
+
+第一章：Python简介
+Python是一种高级编程语言，具有简洁、易读的语法特点。它被广泛应用于Web开发、数据科学、人工智能等领域。
+
+Python的特点：
+1. 语法简洁明了
+2. 跨平台兼容性强
+3. 丰富的第三方库
+4. 强大的社区支持
+
+第二章：基础语法
+变量和数据类型：
+- 数字类型：int、float、complex
+- 文本类型：str
+- 布尔类型：bool
+- 容器类型：list、tuple、dict、set
+
+控制结构：
+- 条件语句：if、elif、else
+- 循环语句：for、while
+- 异常处理：try、except、finally
+
+第三章：函数与模块
+函数定义和调用：
+def function_name(parameters):
+    """文档字符串"""
+    # 函数体
+    return value
+
+模块导入：
+import module_name
+from module_name import function_name
+import module_name as alias
+
+第四章：面向对象编程
+类和对象：
+class ClassName:
+    def __init__(self, parameters):
+        self.attribute = value
+    
+    def method_name(self):
+        return self.attribute
+
+继承和多态：
+class ChildClass(ParentClass):
+    def __init__(self, parameters):
+        super().__init__(parameters)
+        self.new_attribute = value
+
+第五章：实际应用
+文件操作：
+with open('filename.txt', 'r') as file:
+    content = file.read()
+
+网络编程：
+import requests
+response = requests.get('https://api.example.com')
+data = response.json()
+
+数据处理：
+import pandas as pd
+df = pd.read_csv('data.csv')
+result = df.groupby('column').mean()
+
+学习建议：
+1. 多动手练习编程
+2. 阅读优秀的开源代码
+3. 参与编程社区讨论
+4. 做实际项目提升经验

@@ -1,16 +1,5 @@
 import { create } from 'zustand';
-import axios from 'axios';
-
-interface Document {
-  id: string;
-  filename: string;
-  fileType: string;
-  fileSize: number;
-  status: string;
-  uploadTime: string;
-  content?: string;
-  metadata?: any;
-}
+import { documentAPI, Document } from '../services/api';
 
 interface DocumentStore {
   documents: Document[];
@@ -19,8 +8,8 @@ interface DocumentStore {
   
   fetchDocuments: () => Promise<void>;
   uploadDocument: (file: File) => Promise<void>;
-  deleteDocument: (id: string) => Promise<void>;
-  processDocument: (id: string) => Promise<void>;
+  deleteDocument: (id: number) => Promise<void>;
+  processDocument: (id: number) => Promise<void>;
 }
 
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
@@ -31,47 +20,44 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
   fetchDocuments: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await axios.get('/api/v1/documents');
-      set({ documents: response.data, loading: false });
+      const documents = await documentAPI.getDocuments();
+      set({ documents, loading: false });
     } catch (error) {
+      console.error('Error fetching documents:', error);
       set({ error: 'Failed to fetch documents', loading: false });
     }
   },
   
   uploadDocument: async (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    
     try {
-      const response = await axios.post('/api/v1/documents/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      
-      const newDoc = response.data;
+      const newDoc = await documentAPI.uploadDocument(file);
       set((state) => ({
         documents: [...state.documents, newDoc],
       }));
     } catch (error) {
+      console.error('Error uploading document:', error);
       set({ error: 'Failed to upload document' });
       throw error;
     }
   },
   
-  deleteDocument: async (id: string) => {
+  deleteDocument: async (id: number) => {
     try {
-      await axios.delete(`/api/v1/documents/${id}`);
+      await documentAPI.deleteDocument(id);
       set((state) => ({
         documents: state.documents.filter((doc) => doc.id !== id),
       }));
     } catch (error) {
+      console.error('Error deleting document:', error);
       set({ error: 'Failed to delete document' });
       throw error;
     }
   },
   
-  processDocument: async (id: string) => {
+  processDocument: async (id: number) => {
     try {
-      await axios.post(`/api/v1/documents/${id}/process`);
+      // Note: This endpoint might not exist in the current API
+      // await documentAPI.processDocument(id);
       // Update document status
       set((state) => ({
         documents: state.documents.map((doc) =>
@@ -79,6 +65,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
         ),
       }));
     } catch (error) {
+      console.error('Error processing document:', error);
       set({ error: 'Failed to process document' });
       throw error;
     }

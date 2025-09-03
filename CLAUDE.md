@@ -149,10 +149,10 @@ npm run build && npm run preview
 npm run lint
 ```
 
-### Docker Operations (MANDATORY - Project Management Only via Docker)
+### Docker Operations (Backend and Services Only)
 ```bash
-# IMPORTANT: All project operations MUST use Docker commands
-# DO NOT run services directly on host machine
+# IMPORTANT: Backend and services MUST use Docker commands
+# Frontend runs locally for faster development and testing
 
 # Windows: start.bat | Linux/Mac: ./start.sh
 docker-compose up --build -d
@@ -161,8 +161,6 @@ docker-compose down -v  # Full cleanup
 
 # Development workflow
 docker-compose exec backend pytest          # Run backend tests
-docker-compose exec frontend npm test       # Run frontend tests
-docker-compose exec frontend npm run e2e    # Run E2E tests
 ```
 </development_commands>
 
@@ -221,6 +219,7 @@ WEAVIATE_URL=http://localhost:8080
 - Store all documentation and specifications in docs/ directory
 - Reference documentation in CLAUDE.md with clear usage contexts
 - Track and document all resolved issues to prevent recurrence
+- 测试时除了前端在本地运行，其余在docker运行
 
 ### DON'T:
 - Modify database schemas without migration files
@@ -230,6 +229,9 @@ WEAVIATE_URL=http://localhost:8080
 - Skip input validation on API endpoints
 - Use synchronous operations in async contexts
 - Commit sensitive data or credentials
+- **NEVER use mock data or hardcoded data in any implementation**
+- **NEVER implement features without ensuring proper frontend-backend connectivity**
+- **NEVER skip database persistence for any data operations**
 - **NEVER skip unit tests after feature completion**
 - **NEVER implement features without proper planning**
 - **NEVER consider frontend features complete without E2E tests**
@@ -279,9 +281,10 @@ Always include:
 - **Regression Prevention**: Document all bugs and their fixes to prevent recurrence
 
 ### 2. Project Management
-- **Docker Only**: ALL project operations MUST use Docker commands
-- **No Direct Execution**: NEVER run services directly on host machine
-- **Container Isolation**: Maintain strict container boundaries
+- **Backend Docker Only**: Backend and services MUST use Docker commands
+- **Frontend Local**: Frontend runs locally for faster development and testing
+- **Mixed Architecture**: Backend services in containers, frontend on host machine
+- **Container Isolation**: Maintain strict container boundaries for backend services
 
 ### 3. Documentation Standards
 - **Location**: ALL documentation MUST be stored in `docs/` directory
@@ -354,15 +357,15 @@ docker-compose exec backend pytest tests/integration/
 docker-compose exec backend pytest --cov=app
 ```
 
-### Frontend Feature Testing:
+### Frontend Feature Testing (Local):
 ```bash
 # 1. Write component code
 # 2. Create unit tests
-docker-compose exec frontend npm test
+cd frontend && npm test
 
 # 3. Write E2E tests (see docs/tools/playwright-mcp.md)
 # 4. Run E2E tests
-docker-compose exec frontend npm run e2e
+npm run e2e
 
 # 5. Only mark feature complete after E2E passes
 ```

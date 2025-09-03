@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .log { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket 连接测试</h1>
+    <button id="connect-btn">连接 WebSocket</button>
+    <button id="disconnect-btn" disabled>断开连接</button>
+    
+    <div id="status">未连接</div>
+    <div id="logs"></div>
+
+    <script>
+        let ws = null;
+        let taskId = 'test-task-123';
+
+        const statusEl = document.getElementById('status');
+        const logsEl = document.getElementById('logs');
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+
+        function log(message, type = 'info') {
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            logDiv.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            logsEl.appendChild(logDiv);
+            logsEl.scrollTop = logsEl.scrollHeight;
+        }
+
+        function updateStatus(status) {
+            statusEl.textContent = `状态: ${status}`;
+        }
+
+        function connect() {
+            try {
+                // 使用当前页面的host，通过Vite代理连接
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/api/v1/ws/course-generation/${taskId}`;
+                
+                log(`尝试连接到: ${wsUrl}`, 'info');
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    log('WebSocket 连接成功!', 'success');
+                    updateStatus('已连接');
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                    
+                    // 发送ping测试
+                    setTimeout(() => {
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send('ping');
+                            log('发送 ping 消息', 'info');
+                        }
+                    }, 1000);
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        if (event.data === 'pong') {
+                            log('收到 pong 响应', 'success');
+                        } else {
+                            const message = JSON.parse(event.data);
+                            log(`收到消息: ${JSON.stringify(message, null, 2)}`, 'success');
+                        }
+                    } catch (e) {
+                        log(`收到文本消息: ${event.data}`, 'info');
+                    }
+                };
+
+                ws.onclose = (event) => {
+                    log(`WebSocket 连接关闭: 代码=${event.code}, 原因=${event.reason}`, 'error');
+                    updateStatus('连接已关闭');
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                };
+
+                ws.onerror = (error) => {
+                    log(`WebSocket 错误: ${error.message || 'Unknown error'}`, 'error');
+                    updateStatus('连接错误');
+                };
+
+            } catch (e) {
+                log(`连接失败: ${e.message}`, 'error');
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close(1000, 'User disconnect');
+                ws = null;
+            }
+        }
+
+        connectBtn.onclick = connect;
+        disconnectBtn.onclick = disconnect;
+
+        log('WebSocket 测试页面已加载', 'info');
+    </script>
+</body>
+</html>

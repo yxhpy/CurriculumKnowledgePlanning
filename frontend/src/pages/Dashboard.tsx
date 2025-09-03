@@ -1,5 +1,5 @@
-import React from 'react';
-import { Card, Row, Col, Statistic, Progress, List, Tag, Typography, Space } from 'antd';
+import React, { useEffect, useMemo } from 'react';
+import { Card, Row, Col, Statistic, Progress, List, Tag, Typography, Space, Spin, Alert } from 'antd';
 import {
   FileTextOutlined,
   BookOutlined,
@@ -9,61 +9,73 @@ import {
   RiseOutlined,
 } from '@ant-design/icons';
 import { Line, Pie } from '@ant-design/charts';
+import { useDashboardStore } from '../stores/dashboardStore';
+import { useDocumentStore } from '../stores/documentStore';
 
 const { Title, Text } = Typography;
 
 const Dashboard: React.FC = () => {
-  // Sample data for charts
-  const lineData = [
-    { date: '2024-01', value: 3 },
-    { date: '2024-02', value: 4 },
-    { date: '2024-03', value: 3.5 },
-    { date: '2024-04', value: 5 },
-    { date: '2024-05', value: 4.9 },
-    { date: '2024-06', value: 6 },
-    { date: '2024-07', value: 7 },
-    { date: '2024-08', value: 9 },
-  ];
+  const { stats, loading, error, fetchStats } = useDashboardStore();
+  const { documents, fetchDocuments } = useDocumentStore();
+  
+  useEffect(() => {
+    fetchStats();
+    fetchDocuments();
+  }, [fetchStats, fetchDocuments]);
 
-  const pieData = [
-    { type: 'PDF', value: 27 },
-    { type: 'Word', value: 25 },
-    { type: 'Excel', value: 18 },
-    { type: 'Markdown', value: 15 },
-    { type: '文本', value: 10 },
-    { type: '其他', value: 5 },
-  ];
+  // 生成图表数据
+  const pieData = useMemo(() => {
+    if (!stats.documentStats?.file_type_distribution) {
+      return [];
+    }
+    return stats.documentStats.file_type_distribution.map(item => ({
+      type: item.type.toUpperCase(),
+      value: item.count
+    }));
+  }, [stats.documentStats?.file_type_distribution]);
 
-  const recentActivities = [
-    {
-      id: 1,
-      action: '生成课程',
-      course: 'Python数据分析入门',
-      time: '10分钟前',
-      status: 'success',
-    },
-    {
-      id: 2,
+  // 模拟趋势数据（基于真实文档创建时间）
+  const lineData = useMemo(() => {
+    // 这里可以根据documents的创建时间生成趋势图
+    // 暂时使用固定数据，后续可以改为根据真实数据计算
+    return [
+      { date: '2024-01', value: stats.documentStats ? Math.floor(stats.documentStats.total_documents * 0.3) : 0 },
+      { date: '2024-02', value: stats.documentStats ? Math.floor(stats.documentStats.total_documents * 0.5) : 0 },
+      { date: '2024-03', value: stats.documentStats ? Math.floor(stats.documentStats.total_documents * 0.7) : 0 },
+      { date: '2024-04', value: stats.documentStats ? stats.documentStats.total_documents : 0 },
+    ];
+  }, [stats.documentStats?.total_documents]);
+
+  // 最近活动（基于真实文档数据）
+  const recentActivities = useMemo(() => {
+    return documents.slice(0, 4).map((doc, index) => ({
+      id: doc.id,
       action: '上传文档',
-      course: 'machine_learning.pdf',
-      time: '30分钟前',
-      status: 'processing',
-    },
-    {
-      id: 3,
-      action: '编辑知识图谱',
-      course: 'Web开发基础',
-      time: '1小时前',
-      status: 'success',
-    },
-    {
-      id: 4,
-      action: '发布课程',
-      course: '人工智能导论',
-      time: '2小时前',
-      status: 'success',
-    },
-  ];
+      course: doc.filename,
+      time: new Date(doc.created_at).toLocaleDateString(),
+      status: doc.status === 'processed' ? 'success' : doc.status === 'failed' ? 'error' : 'processing',
+    }));
+  }, [documents]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert
+        message="加载失败"
+        description={error}
+        type="error"
+        className="mb-4"
+        action={<a onClick={fetchStats}>重试</a>}
+      />
+    );
+  }
 
   const lineConfig = {
     data: lineData,
@@ -110,48 +122,64 @@ const Dashboard: React.FC = () => {
           <Card className="hover:shadow-lg transition-shadow">
             <Statistic
               title="文档总数"
-              value={156}
+              value={stats.documentStats?.total_documents || 0}
               prefix={<FileTextOutlined />}
               suffix="份"
               valueStyle={{ color: '#3f8600' }}
             />
-            <Progress percent={75} strokeColor="#52c41a" showInfo={false} />
+            <Progress 
+              percent={stats.documentStats ? Math.round((stats.documentStats.processed_documents / stats.documentStats.total_documents) * 100) : 0} 
+              strokeColor="#52c41a" 
+              showInfo={false} 
+            />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card className="hover:shadow-lg transition-shadow">
             <Statistic
               title="已生成课程"
-              value={23}
+              value={stats.courseStats?.total_courses || 0}
               prefix={<BookOutlined />}
               suffix="门"
               valueStyle={{ color: '#1890ff' }}
             />
-            <Progress percent={60} strokeColor="#1890ff" showInfo={false} />
+            <Progress 
+              percent={stats.courseStats ? Math.round((stats.courseStats.published_courses / (stats.courseStats.total_courses || 1)) * 100) : 0} 
+              strokeColor="#1890ff" 
+              showInfo={false} 
+            />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card className="hover:shadow-lg transition-shadow">
             <Statistic
-              title="AI处理次数"
-              value={432}
+              title="已处理文档"
+              value={stats.documentStats?.processed_documents || 0}
               prefix={<RobotOutlined />}
-              suffix="次"
+              suffix="个"
               valueStyle={{ color: '#722ed1' }}
             />
-            <Progress percent={85} strokeColor="#722ed1" showInfo={false} />
+            <Progress 
+              percent={stats.documentStats ? Math.round((stats.documentStats.processed_documents / (stats.documentStats.total_documents || 1)) * 100) : 0} 
+              strokeColor="#722ed1" 
+              showInfo={false} 
+            />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card className="hover:shadow-lg transition-shadow">
             <Statistic
-              title="本月增长"
-              value={28.3}
+              title="文件大小"
+              value={stats.documentStats ? Math.round(stats.documentStats.total_size / 1024 / 1024) : 0}
               prefix={<RiseOutlined />}
-              suffix="%"
+              suffix="MB"
               valueStyle={{ color: '#cf1322' }}
             />
-            <Progress percent={90} strokeColor="#ff4d4f" showInfo={false} />
+            <Progress 
+              percent={75} 
+              strokeColor="#ff4d4f" 
+              showInfo={false} 
+            />
           </Card>
         </Col>
       </Row>

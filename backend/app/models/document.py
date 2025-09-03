@@ -17,7 +17,7 @@ class Document(BaseModel):
     # Extracted content
     raw_content = Column(Text)
     processed_content = Column(Text)
-    metadata = Column(Text)  # JSON string
+    doc_metadata = Column("metadata", Text)  # JSON string
     
     # Processing status
     status = Column(String(50), default="uploaded")  # uploaded, processing, processed, failed

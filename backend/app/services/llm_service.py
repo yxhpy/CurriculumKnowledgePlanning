@@ -44,23 +44,56 @@ class ChapterStructure(BaseModel):
     estimated_hours: float = Field(description="Estimated hours")
     difficulty_level: str = Field(description="Difficulty level")
     learning_objectives: List[str] = Field(description="Chapter learning objectives")
-    sections: List[Dict[str, Any]] = Field(description="Chapter sections")
+
+class ChapterKnowledgePoint(BaseModel):
+    point_id: str = Field(description="Knowledge point ID (e.g., '1.1.1')")
+    title: str = Field(description="Knowledge point title")
+    description: str = Field(description="Knowledge point description")
+    point_type: str = Field(description="Type: concept, method, tool, case")
+    estimated_minutes: int = Field(description="Estimated learning minutes")
+    prerequisites: List[str] = Field(description="Prerequisite point IDs")
+
+class SectionContent(BaseModel):
+    section_number: str = Field(description="Section number (e.g., '1.1')")
+    title: str = Field(description="Section title")
+    description: str = Field(description="Section description")
+    content: str = Field(description="Section content")
+    estimated_minutes: int = Field(description="Estimated minutes")
+    knowledge_points: List[ChapterKnowledgePoint] = Field(description="Knowledge points in this section")
 
 class CourseStructure(BaseModel):
     total_chapters: int = Field(description="Total number of chapters")
     estimated_hours: float = Field(description="Total estimated hours")
     chapters: List[ChapterStructure] = Field(description="List of chapters")
 
+class ChapterContentStructure(BaseModel):
+    chapter_id: int = Field(description="Chapter ID")
+    sections: List[SectionContent] = Field(description="Sections with knowledge points")
+
+# 简化的数据模型用于测试
+class SimpleKnowledgePoint(BaseModel):
+    title: str = Field(description="知识点标题")
+    description: str = Field(description="知识点描述")
+
+class SimpleSection(BaseModel):
+    title: str = Field(description="小节标题") 
+    knowledge_points: List[SimpleKnowledgePoint] = Field(description="知识点列表")
+
+class SimpleChapterContent(BaseModel):
+    sections: List[SimpleSection] = Field(description="小节列表")
+
 class LLMService:
     """Service for LLM-based content generation"""
     
     def __init__(self):
         self.llm = ChatOpenAI(
-            temperature=0.7,
+            temperature=0.3,  # 降低温度以获得更稳定的输出
             model_name=settings.OPENAI_MODEL,
             openai_api_key=settings.OPENAI_API_KEY,
             openai_api_base=settings.OPENAI_API_BASE,
-            max_tokens=2000
+            max_tokens=2000,
+            request_timeout=60,  # 增加超时时间
+            max_retries=3  # 增加重试次数
         )
         
     def generate_course_introduction(self, document_content: str, course_type: str = "通用") -> Dict[str, Any]:
@@ -156,29 +189,32 @@ SMART原则要求：
             }
     
     def generate_chapter_structure(self, document_content: str, max_chapters: int = 8) -> Dict[str, Any]:
-        """Generate course chapter structure"""
+        """Generate course chapter structure (overview only, no detailed sections)"""
         try:
             parser = PydanticOutputParser(pydantic_object=CourseStructure)
             
             prompt = ChatPromptTemplate.from_messages([
                 SystemMessage(content="你是一位资深的课程架构师，擅长将复杂内容组织成清晰的章节结构。"),
                 HumanMessage(content=f"""
-基于以下文档内容，设计一个逻辑清晰的课程章节体系。
+基于以下文档内容，设计一个逻辑清晰的课程章节体系架构。
 
 文档内容：
 {document_content[:4000]}
 
 设计要求：
 1. 章节数量：3-{max_chapters}个主章节
-2. 层次结构：主章节-子章节-知识点
+2. 只需要生成章节级别的结构，不需要详细的小节内容
 3. 逻辑顺序：从基础到进阶
 4. 内容均衡：各章节内容量相对均衡
 
-请分析文档结构，识别：
-- 核心概念和理论
-- 技术方法和工具
-- 实践应用和案例
-- 前置关系和依赖
+请为每个章节提供：
+- 章节标题
+- 章节描述（50-100字）
+- 预估学时
+- 难度级别
+- 学习目标（3-5个要点）
+
+注意：此阶段只生成章节框架，详细的小节和知识点将在后续单独生成。
 
 {parser.get_format_instructions()}
 """)
@@ -196,6 +232,90 @@ SMART原则要求：
             
         except Exception as e:
             logger.error(f"Error generating chapter structure: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def generate_chapter_content(self, document_content: str, chapter_info: Dict[str, Any], chapter_number: int) -> Dict[str, Any]:
+        """Generate detailed content for a specific chapter including sections and knowledge points"""
+        try:
+            parser = PydanticOutputParser(pydantic_object=ChapterContentStructure)
+            
+            prompt = ChatPromptTemplate.from_messages([
+                SystemMessage(content="""你是一位专业的中文课程内容设计师。请严格按照JSON格式要求输出，所有内容必须使用中文。
+重要提醒：
+1. 必须输出完整有效的JSON格式
+2. 所有文本内容必须使用中文
+3. 不要添加任何JSON之外的文字说明"""),
+                HumanMessage(content=f"""
+请为第{chapter_number}章生成详细的教学内容结构，严格按照JSON格式输出。
+
+文档内容：{document_content[:2000]}
+
+章节信息：
+- 标题：{chapter_info.get('chapter_title', f'第{chapter_number}章')}
+- 描述：{chapter_info.get('chapter_description', '')}
+- 学习目标：{', '.join(chapter_info.get('learning_objectives', []))}
+
+要求：
+1. 生成3-4个小节（Section）
+2. 每个小节2-3个知识点
+3. 知识点ID格式：{chapter_number}.1.1, {chapter_number}.1.2等
+4. 所有内容必须中文
+5. 严格JSON格式输出
+
+{parser.get_format_instructions()}
+
+请直接输出JSON，不要任何额外说明：
+""")
+            ])
+            
+            result = self.llm(prompt.format_messages())
+            
+            # 多层次的JSON解析尝试
+            response_content = result.content.strip()
+            logger.info(f"LLM raw response for chapter {chapter_number}: '{response_content}'")
+            logger.info(f"Response length: {len(response_content)}")
+            
+            # 尝试直接解析
+            try:
+                # 先尝试提取JSON部分
+                import re
+                json_match = re.search(r'\{.*\}', response_content, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group()
+                    parsed_data = json.loads(json_str)
+                    
+                    # 验证数据结构
+                    parsed_result = ChapterContentStructure(**parsed_data)
+                    return {
+                        'success': True,
+                        'data': parsed_result.dict()
+                    }
+                else:
+                    logger.warning(f"No JSON found in LLM response: {response_content[:500]}")
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.warning(f"Direct JSON parsing failed: {e}, trying OutputFixingParser")
+            
+            # 备用：使用OutputFixingParser
+            try:
+                fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=self.llm)
+                parsed_result = fixing_parser.parse(response_content)
+                return {
+                    'success': True,
+                    'data': parsed_result.dict()
+                }
+            except Exception as e:
+                logger.error(f"OutputFixingParser also failed: {e}")
+            
+            return {
+                'success': False,
+                'error': f'Failed to parse LLM response: {response_content[:500]}'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating chapter content: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
@@ -259,6 +379,79 @@ SMART原则要求：
                     
         except Exception as e:
             logger.error(f"Error generating knowledge graph: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def generate_simple_chapter_content(self, document_content: str, chapter_info: Dict[str, Any], chapter_number: int) -> Dict[str, Any]:
+        """生成简化版本的章节详细内容"""
+        try:
+            # 不使用Pydantic解析器，直接请求JSON
+            prompt = ChatPromptTemplate.from_messages([
+                SystemMessage(content="你是专业的课程设计师。请严格按照JSON格式输出中文内容。"),
+                HumanMessage(content=f"""
+为第{chapter_number}章"{chapter_info.get('chapter_title', '')}"生成教学内容。
+
+参考资料：{document_content[:300]}
+
+请按照以下JSON格式输出（所有字段都是必需的）：
+{{
+  "sections": [
+    {{
+      "title": "小节标题",
+      "knowledge_points": [
+        {{
+          "title": "知识点标题",
+          "description": "知识点描述"
+        }}
+      ]
+    }}
+  ]
+}}
+
+要求：
+1. 生成2个小节
+2. 每个小节2个知识点
+3. 所有内容中文
+4. 严格JSON格式
+
+直接输出JSON，不要任何额外文字：
+""")])
+            
+            result = self.llm(prompt.format_messages())
+            response_content = result.content.strip()
+            
+            logger.info(f"Simple LLM response for chapter {chapter_number}: '{response_content}'")
+            
+            if not response_content:
+                return {
+                    'success': False,
+                    'error': 'LLM returned empty response'
+                }
+            
+            # 尝试解析JSON
+            try:
+                import re
+                json_match = re.search(r'\{.*\}', response_content, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group()
+                    parsed_data = json.loads(json_str)
+                    parsed_result = SimpleChapterContent(**parsed_data)
+                    return {
+                        'success': True,
+                        'data': parsed_result.dict()
+                    }
+            except Exception as e:
+                logger.error(f"JSON parsing failed: {e}")
+            
+            return {
+                'success': False,
+                'error': f'Failed to parse response: {response_content[:200]}'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in simple chapter content generation: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)

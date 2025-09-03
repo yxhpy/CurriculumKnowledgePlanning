@@ -8,6 +8,7 @@ import DocumentUpload from './pages/DocumentUpload';
 import CourseGeneration from './pages/CourseGeneration';
 import KnowledgeGraph from './pages/KnowledgeGraph';
 import CourseDetail from './pages/CourseDetail';
+import CourseList from './pages/CourseList';
 import './styles/global.css';
 
 const App: React.FC = () => {
@@ -30,6 +31,8 @@ const App: React.FC = () => {
             <Route path="upload" element={<DocumentUpload />} />
             <Route path="generate" element={<CourseGeneration />} />
             <Route path="knowledge-graph" element={<KnowledgeGraph />} />
+            <Route path="courses" element={<CourseList />} />
+            <Route path="courses/drafts" element={<CourseList />} />
             <Route path="course/:id" element={<CourseDetail />} />
           </Route>
         </Routes>

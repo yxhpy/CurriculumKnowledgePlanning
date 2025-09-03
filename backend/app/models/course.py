@@ -17,9 +17,10 @@ class Course(BaseModel):
     estimated_hours = Column(Float)
     status = Column(String(50), default="draft")  # draft, published, archived
     
-    # Learning outcomes stored as JSON array
+    # Learning outcomes and objectives stored as JSON
     learning_outcomes = Column(JSON)
     course_highlights = Column(JSON)
+    objectives = Column(JSON)  # SMART learning objectives
     
     # Foreign keys
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)

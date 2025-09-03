@@ -10,6 +10,7 @@ from app.api.v1.endpoints import (
     auth,
     users
 )
+from app.api.v1 import websocket
 
 api_router = APIRouter()
 
@@ -18,3 +19,4 @@ api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(documents.router, prefix="/documents", tags=["documents"])
 api_router.include_router(courses.router, prefix="/courses", tags=["courses"])
 api_router.include_router(knowledge_graph.router, prefix="/knowledge-graph", tags=["knowledge-graph"])
+api_router.include_router(websocket.router, prefix="/ws", tags=["websocket"])

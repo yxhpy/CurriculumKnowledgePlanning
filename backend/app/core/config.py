@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     UPLOAD_DIR: Path = Path("uploads")
     
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:3002"]
     
     # Celery
     CELERY_BROKER_URL: str = Field(default="redis://localhost:6379/1", env="CELERY_BROKER_URL")
