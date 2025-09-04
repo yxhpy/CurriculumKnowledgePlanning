@@ -5,6 +5,7 @@ import zhCN from 'antd/locale/zh_CN';
 import MainLayout from './layouts/MainLayout';
 import Dashboard from './pages/Dashboard';
 import DocumentUpload from './pages/DocumentUpload';
+import DocumentManagement from './pages/DocumentManagement';
 import CourseGeneration from './pages/CourseGeneration';
 import CourseDetail from './pages/CourseDetail';
 import CourseList from './pages/CourseList';
@@ -29,10 +30,11 @@ const App: React.FC = () => {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="upload" element={<DocumentUpload />} />
+              <Route path="documents" element={<DocumentManagement />} />
               <Route path="generate" element={<CourseGeneration />} />
               <Route path="courses" element={<CourseList />} />
               <Route path="courses/drafts" element={<CourseList />} />
-              <Route path="course/:id" element={<CourseDetail />} />
+              <Route path="courses/:id" element={<CourseDetail />} />
             </Route>
           </Routes>
         </Router>

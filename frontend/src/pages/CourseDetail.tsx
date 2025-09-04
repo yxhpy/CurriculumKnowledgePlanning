@@ -10,7 +10,6 @@ import {
   Collapse,
   Space,
   Button,
-  Breadcrumb,
   Row,
   Col,
   Statistic,
@@ -740,15 +739,9 @@ const CourseDetail: React.FC = () => {
     <div className="page-container">
       <div className="page-header">
         <div className="flex justify-between items-center">
-        <Breadcrumb>
-          <Breadcrumb.Item>
-            <a onClick={() => navigate('/dashboard')}>首页</a>
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>
-            <a onClick={() => navigate('/courses')}>课程管理</a>
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>{course.title}</Breadcrumb.Item>
-        </Breadcrumb>
+        <Title level={2} style={{ margin: 0 }}>
+          {course.title}
+        </Title>
         
         <Space>
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/courses')}>

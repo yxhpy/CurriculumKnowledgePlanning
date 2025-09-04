@@ -371,7 +371,7 @@ const CourseGeneration: React.FC = () => {
               <Button type="primary" key="view" onClick={() => {
                 if (generatedCourseId) {
                   // 跳转到课程详情页面查看
-                  navigate(`/course/${generatedCourseId}`);
+                  navigate(`/courses/${generatedCourseId}`);
                 }
               }}>
                 查看课程
@@ -379,7 +379,7 @@ const CourseGeneration: React.FC = () => {
               <Button key="edit" onClick={() => {
                 if (generatedCourseId) {
                   // 跳转到课程详情页面编辑
-                  navigate(`/course/${generatedCourseId}`);
+                  navigate(`/courses/${generatedCourseId}`);
                 }
               }}>
                 编辑课程

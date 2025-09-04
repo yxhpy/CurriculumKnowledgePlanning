@@ -81,13 +81,44 @@ export const documentAPI = {
   },
 
   // 删除文档
-  async deleteDocument(id: number): Promise<void> {
-    await api.delete(`/documents/${id}`);
+  async deleteDocument(id: number, force: boolean = false): Promise<void> {
+    await api.delete(`/documents/${id}`, { params: { force } });
   },
 
   // 获取单个文档
   async getDocument(id: number): Promise<Document> {
     const response = await api.get(`/documents/${id}`);
+    return response.data;
+  },
+
+  // 重新处理文档
+  async retryDocument(id: number): Promise<{ message: string }> {
+    const response = await api.post(`/documents/${id}/retry`);
+    return response.data;
+  },
+
+  // 获取处理状态
+  async getProcessingStatus(): Promise<{
+    status_counts: Array<{ status: string; count: number }>;
+    retryable_documents: number;
+    avg_processing_time_seconds: number;
+    currently_processing: number;
+  }> {
+    const response = await api.get('/documents/management/status');
+    return response.data;
+  },
+
+  // 获取失败文档列表
+  async getFailedDocuments(skip: number = 0, limit: number = 50): Promise<any[]> {
+    const response = await api.get('/documents/management/failed', {
+      params: { skip, limit }
+    });
+    return response.data;
+  },
+
+  // 清理超时文档
+  async cleanupTimeouts(): Promise<{ message: string; document_ids: number[] }> {
+    const response = await api.post('/documents/management/cleanup-timeouts');
     return response.data;
   },
 };

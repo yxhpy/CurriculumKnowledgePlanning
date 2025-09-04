@@ -25,7 +25,7 @@ import {
   CloseCircleOutlined,
 } from '@ant-design/icons';
 import type { UploadProps, UploadFile } from 'antd';
-import { useDocumentStore } from '@/stores/documentStore';
+import { documentAPI } from '@/services/api';
 
 const { Title, Text, Paragraph } = Typography;
 const { Dragger } = Upload;
@@ -35,9 +35,11 @@ interface DocumentItem {
   name: string;
   size: number;
   type: string;
-  status: 'uploading' | 'processing' | 'completed' | 'failed';
+  status: 'uploaded' | 'uploading' | 'processing' | 'processed' | 'completed' | 'failed';
   progress: number;
   uploadTime: string;
+  processed_content?: string;
+  raw_content?: string;
 }
 
 const DocumentUpload: React.FC = () => {
@@ -46,6 +48,34 @@ const DocumentUpload: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
+
+  // 获取文档列表
+  const fetchDocuments = async () => {
+    try {
+      const response = await documentAPI.getDocuments();
+      const documentItems: DocumentItem[] = response.map(doc => ({
+        id: doc.id.toString(),
+        name: doc.filename,
+        size: doc.file_size,
+        type: doc.file_type,
+        status: doc.status as DocumentItem['status'],
+        progress: doc.status === 'processed' ? 100 : doc.status === 'processing' ? 50 : doc.status === 'uploaded' ? 0 : 100,
+        uploadTime: new Date(doc.created_at).toLocaleString(),
+        processed_content: doc.processed_content,
+        raw_content: doc.raw_content,
+      }));
+      setDocuments(documentItems);
+    } catch (error) {
+      console.error('Failed to fetch documents:', error);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchDocuments();
+    // 设置定时刷新以更新处理状态
+    const interval = setInterval(fetchDocuments, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   const getFileIcon = (type: string) => {
     const iconMap: Record<string, React.ReactNode> = {
@@ -62,12 +92,14 @@ const DocumentUpload: React.FC = () => {
 
   const getStatusTag = (status: string) => {
     const statusMap: Record<string, { color: string; icon: React.ReactNode; text: string }> = {
+      uploaded: { color: 'blue', icon: <ClockCircleOutlined />, text: '已上传' },
       uploading: { color: 'blue', icon: <ClockCircleOutlined />, text: '上传中' },
       processing: { color: 'orange', icon: <ClockCircleOutlined />, text: '处理中' },
+      processed: { color: 'green', icon: <CheckCircleOutlined />, text: '已完成' },
       completed: { color: 'green', icon: <CheckCircleOutlined />, text: '已完成' },
       failed: { color: 'red', icon: <CloseCircleOutlined />, text: '失败' },
     };
-    const config = statusMap[status];
+    const config = statusMap[status] || { color: 'default', icon: <ClockCircleOutlined />, text: status };
     return (
       <Tag color={config.color} icon={config.icon}>
         {config.text}
@@ -87,25 +119,8 @@ const DocumentUpload: React.FC = () => {
       
       if (status === 'done') {
         message.success(`${info.file.name} 上传成功`);
-        const newDoc: DocumentItem = {
-          id: info.file.uid,
-          name: info.file.name,
-          size: info.file.size || 0,
-          type: info.file.name.split('.').pop() || 'unknown',
-          status: 'processing',
-          progress: 100,
-          uploadTime: new Date().toLocaleString(),
-        };
-        setDocuments([...documents, newDoc]);
-        
-        // Simulate processing
-        setTimeout(() => {
-          setDocuments(prev =>
-            prev.map(doc =>
-              doc.id === newDoc.id ? { ...doc, status: 'completed' } : doc
-            )
-          );
-        }, 3000);
+        // 刷新文档列表以获取最新状态
+        fetchDocuments();
       } else if (status === 'error') {
         message.error(`${info.file.name} 上传失败`);
       }
@@ -158,9 +173,29 @@ const DocumentUpload: React.FC = () => {
                     <Button
                       type="text"
                       icon={<EyeOutlined />}
-                      onClick={() => {
-                        setSelectedDoc(item);
-                        setPreviewVisible(true);
+                      onClick={async () => {
+                        try {
+                          // 获取完整的文档信息，包括处理后的内容
+                          const fullDoc = await documentAPI.getDocument(parseInt(item.id));
+                          const documentItem: DocumentItem = {
+                            id: fullDoc.id.toString(),
+                            name: fullDoc.filename,
+                            size: fullDoc.file_size,
+                            type: fullDoc.file_type,
+                            status: fullDoc.status as DocumentItem['status'],
+                            progress: fullDoc.status === 'processed' ? 100 : fullDoc.status === 'processing' ? 50 : fullDoc.status === 'uploaded' ? 0 : 100,
+                            uploadTime: new Date(fullDoc.created_at).toLocaleString(),
+                            processed_content: fullDoc.processed_content,
+                            raw_content: fullDoc.raw_content,
+                          };
+                          setSelectedDoc(documentItem);
+                          setPreviewVisible(true);
+                        } catch (error) {
+                          message.error('获取文档详情失败');
+                          // 降级处理，使用当前文档信息
+                          setSelectedDoc(item);
+                          setPreviewVisible(true);
+                        }
                       }}
                     />
                   </Tooltip>,
@@ -169,9 +204,14 @@ const DocumentUpload: React.FC = () => {
                       type="text"
                       danger
                       icon={<DeleteOutlined />}
-                      onClick={() => {
-                        setDocuments(documents.filter(doc => doc.id !== item.id));
-                        message.success('文档已删除');
+                      onClick={async () => {
+                        try {
+                          await documentAPI.deleteDocument(parseInt(item.id));
+                          message.success('文档已删除');
+                          fetchDocuments();
+                        } catch (error) {
+                          message.error('删除失败');
+                        }
                       }}
                     />
                   </Tooltip>,
@@ -207,10 +247,17 @@ const DocumentUpload: React.FC = () => {
         open={previewVisible}
         onCancel={() => setPreviewVisible(false)}
         footer={null}
-        width={800}
+        width={1000}
+        styles={{
+          body: {
+            maxHeight: '70vh',
+            overflow: 'hidden',
+            padding: '24px'
+          }
+        }}
       >
         {selectedDoc && (
-          <div className="space-y-4">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
             <div className="bg-gray-50 p-4 rounded-lg">
               <Title level={4}>{selectedDoc.name}</Title>
               <Paragraph>
@@ -226,12 +273,49 @@ const DocumentUpload: React.FC = () => {
                 <Text type="secondary">处理状态：</Text> {getStatusTag(selectedDoc.status)}
               </Paragraph>
             </div>
-            {selectedDoc.status === 'completed' && (
-              <div className="border-t pt-4">
+            {selectedDoc.status === 'processed' && (
+              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
                 <Title level={5}>文档内容预览</Title>
-                <Paragraph className="bg-white p-4 border rounded-lg">
-                  这里将显示文档的处理结果和提取的内容...
-                </Paragraph>
+                <div 
+                  style={{ 
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    maxHeight: '384px',
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    padding: '16px',
+                    boxSizing: 'border-box',
+                    width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0
+                  }}
+                >
+                  {selectedDoc.processed_content ? (
+                    <div 
+                      style={{ 
+                        fontSize: '14px',
+                        color: '#374151',
+                        wordBreak: 'break-all',
+                        overflowWrap: 'anywhere',
+                        whiteSpace: 'pre-wrap',
+                        width: '100%',
+                        maxWidth: '100%',
+                        minWidth: 0,
+                        fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Menlo", monospace',
+                        lineHeight: '1.5',
+                        margin: 0,
+                        padding: 0,
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      {selectedDoc.processed_content.substring(0, 3000)}
+                      {selectedDoc.processed_content.length > 3000 && '\n\n[内容过长，仅显示前3000字符]'}
+                    </div>
+                  ) : (
+                    <Text type="secondary">暂无处理后的内容</Text>
+                  )}
+                </div>
               </div>
             )}
           </div>

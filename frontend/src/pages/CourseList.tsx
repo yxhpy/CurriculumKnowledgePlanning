@@ -93,7 +93,7 @@ const CourseList: React.FC = () => {
       dataIndex: 'title',
       key: 'title',
       render: (title: string, record: Course) => (
-        <div className="cursor-pointer" onClick={() => navigate(`/course/${record.id}`)}>
+        <div className="cursor-pointer" onClick={() => navigate(`/courses/${record.id}`)}>
           <div className="font-medium text-blue-600 hover:text-blue-800">
             {title}
           </div>
@@ -156,7 +156,7 @@ const CourseList: React.FC = () => {
             type="text"
             icon={<EyeOutlined />}
             size="small"
-            onClick={() => navigate(`/course/${record.id}`)}
+            onClick={() => navigate(`/courses/${record.id}`)}
           >
             查看
           </Button>
@@ -164,7 +164,7 @@ const CourseList: React.FC = () => {
             type="text"
             icon={<EditOutlined />}
             size="small"
-            onClick={() => navigate(`/course/${record.id}`)}
+            onClick={() => navigate(`/courses/${record.id}`)}
           >
             编辑
           </Button>

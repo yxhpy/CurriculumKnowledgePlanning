@@ -62,18 +62,12 @@ async def upload_document(
     # Process document in background
     background_tasks.add_task(process_document_task, document.id, str(file_path), file_extension)
     
-    return DocumentResponse(
-        id=document.id,
-        filename=document.filename,
-        file_type=document.file_type,
-        file_size=document.file_size,
-        status=document.status,
-        created_at=document.created_at
-    )
+    return DocumentResponse.model_validate(document)
 
 def process_document_task(document_id: int, file_path: str, file_type: str):
     """Background task to process document"""
     from app.core.database import SessionLocal
+    from sqlalchemy.sql import func
     
     db = SessionLocal()
     try:
@@ -82,8 +76,9 @@ def process_document_task(document_id: int, file_path: str, file_type: str):
         if not document:
             return
         
-        # Update status
+        # Update status and start time
         document.status = "processing"
+        document.processing_started_at = func.now()
         db.commit()
         
         # Process document
@@ -96,15 +91,20 @@ def process_document_task(document_id: int, file_path: str, file_type: str):
             document.metadata = str(result.get('metadata', {}))
             document.content_hash = result.get('file_hash', '')
             document.status = "processed"
+            document.processing_completed_at = func.now()
         else:
             document.status = "failed"
             document.error_message = result.get('error', 'Unknown error')
+            document.retry_count += 1
+            document.processing_completed_at = func.now()
         
         db.commit()
         
     except Exception as e:
         document.status = "failed"
         document.error_message = str(e)
+        document.retry_count += 1
+        document.processing_completed_at = func.now()
         db.commit()
     finally:
         db.close()
@@ -145,7 +145,9 @@ async def list_documents(
     db: Session = Depends(get_db)
 ):
     """List all documents"""
-    documents = db.query(Document).offset(skip).limit(limit).all()
+    documents = db.query(Document).filter(
+        Document.is_deleted.is_(False)
+    ).offset(skip).limit(limit).all()
     return documents
 
 @router.get("/{document_id}", response_model=DocumentResponse)
@@ -154,7 +156,10 @@ async def get_document(
     db: Session = Depends(get_db)
 ):
     """Get document details"""
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.is_deleted.is_(False)
+    ).first()
     if not document:
         raise HTTPException(404, "Document not found")
     return document
@@ -162,19 +167,141 @@ async def get_document(
 @router.delete("/{document_id}")
 async def delete_document(
     document_id: int,
+    force: bool = False,
     db: Session = Depends(get_db)
 ):
-    """Delete a document"""
-    document = db.query(Document).filter(Document.id == document_id).first()
+    """Delete a document (soft delete by default)"""
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.is_deleted.is_(False)
+    ).first()
     if not document:
         raise HTTPException(404, "Document not found")
     
-    # Delete file
-    if document.file_path and os.path.exists(document.file_path):
-        os.remove(document.file_path)
+    if force:
+        # Hard delete - remove file and database record
+        if document.file_path and os.path.exists(document.file_path):
+            os.remove(document.file_path)
+        db.delete(document)
+    else:
+        # Soft delete - mark as deleted
+        from sqlalchemy.sql import func
+        document.is_deleted = True
+        document.deleted_at = func.now()
     
-    # Delete database record
-    db.delete(document)
     db.commit()
     
     return {"message": "Document deleted successfully"}
+
+@router.post("/{document_id}/retry")
+async def retry_document_processing(
+    document_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """Retry processing a failed document"""
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.is_deleted.is_(False)
+    ).first()
+    if not document:
+        raise HTTPException(404, "Document not found")
+    
+    if not document.can_retry():
+        raise HTTPException(400, "Document cannot be retried")
+    
+    # Reset document status
+    document.status = "uploaded"
+    document.error_message = None
+    db.commit()
+    
+    # Process document in background
+    background_tasks.add_task(process_document_task, document.id, document.file_path, document.file_type)
+    
+    return {"message": "Document retry initiated"}
+
+@router.get("/management/status")
+async def get_processing_status(db: Session = Depends(get_db)):
+    """Get current processing status and queue info"""
+    from sqlalchemy import func, case
+    
+    # Document counts by status
+    status_counts = db.query(
+        Document.status.label('status'),
+        func.count(Document.id).label('count')
+    ).filter(Document.is_deleted.is_(False)).group_by(Document.status).all()
+    
+    # Failed documents that can be retried
+    retryable_count = db.query(Document).filter(
+        Document.status == "failed",
+        Document.retry_count < Document.max_retries,
+        Document.is_deleted.is_(False)
+    ).count()
+    
+    # Processing time statistics
+    processing_stats = db.query(
+        func.avg(
+            case(
+                (Document.processing_completed_at.is_not(None),
+                 func.extract('epoch', Document.processing_completed_at - Document.processing_started_at))
+            )
+        ).label('avg_processing_time'),
+        func.count(
+            case((Document.status == "processing", 1))
+        ).label('currently_processing')
+    ).filter(Document.is_deleted.is_(False)).first()
+    
+    return {
+        "status_counts": [{"status": item.status, "count": item.count} for item in status_counts],
+        "retryable_documents": retryable_count,
+        "avg_processing_time_seconds": processing_stats.avg_processing_time or 0,
+        "currently_processing": processing_stats.currently_processing or 0
+    }
+
+@router.get("/management/failed")
+async def get_failed_documents(
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """Get list of failed documents with retry info"""
+    documents = db.query(Document).filter(
+        Document.status == "failed",
+        Document.is_deleted.is_(False)
+    ).order_by(Document.updated_at.desc()).offset(skip).limit(limit).all()
+    
+    return [{
+        "id": doc.id,
+        "filename": doc.filename,
+        "file_type": doc.file_type,
+        "error_message": doc.error_message,
+        "retry_count": doc.retry_count,
+        "max_retries": doc.max_retries,
+        "can_retry": doc.can_retry(),
+        "updated_at": doc.updated_at
+    } for doc in documents]
+
+@router.post("/management/cleanup-timeouts")
+async def cleanup_timeout_documents(db: Session = Depends(get_db)):
+    """Mark timed-out processing documents as failed"""
+    from sqlalchemy.sql import func
+    
+    timeout_threshold = func.now() - func.make_interval(mins=30)
+    
+    timed_out_docs = db.query(Document).filter(
+        Document.status == "processing",
+        Document.processing_started_at < timeout_threshold,
+        Document.is_deleted.is_(False)
+    ).all()
+    
+    for doc in timed_out_docs:
+        doc.status = "failed"
+        doc.error_message = "Processing timeout (30 minutes)"
+        doc.processing_completed_at = func.now()
+    
+    db.commit()
+    
+    return {
+        "message": f"Cleaned up {len(timed_out_docs)} timed-out documents",
+        "document_ids": [doc.id for doc in timed_out_docs]
+    }
